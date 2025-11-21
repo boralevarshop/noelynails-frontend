@@ -71,16 +71,22 @@ export default function AgendamentosPage() {
           dataHora: dataHoraCombinada.toISOString()
         })
       });
+
       if (res.ok) {
         alert('Agendamento realizado! 📅');
         setNovoAgendamento({ nomeCliente: '', telefoneCliente: '', serviceId: '', professionalId: '' });
         setDataSelecionada(''); setHorarioSelecionado('');
         carregarDados(usuario.tenant.id);
-      } else { alert('Erro ao agendar'); }
-    } catch (error) { alert('Erro de conexão'); }
+      } else { 
+        // CORREÇÃO: Captura a mensagem de erro exata do Backend
+        const erro = await res.json();
+        // O NestJS retorna 'message' (pode ser string ou array)
+        const msg = Array.isArray(erro.message) ? erro.message[0] : erro.message;
+        alert(`Atenção: ${msg || 'Erro ao agendar'}`);
+      }
+    } catch (error) { alert('Erro de conexão com o servidor'); }
   };
 
-  // --- FUNÇÃO DE CANCELAR ---
   const handleCancel = async (id: string) => {
     if (!confirm('Deseja realmente cancelar este agendamento?')) return;
     try {
@@ -147,12 +153,14 @@ export default function AgendamentosPage() {
             </form>
           </div>
 
-          {/* Lista */}
+          {/* Lista FILTRADA (Sem Cancelados) */}
           <div className="lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Próximos Horários</h2>
             {loading ? <p>Carregando...</p> : agendamentos.length === 0 ? <p className="text-gray-500">Agenda vazia.</p> : (
               <ul className="space-y-3">
-                {agendamentos.map((agenda) => (
+                {agendamentos
+                  .filter(agenda => agenda.status !== 'CANCELADO') // FILTRO AQUI: Esconde os cancelados
+                  .map((agenda) => (
                   <li key={agenda.id} className="bg-white p-4 rounded-lg shadow border-l-4 border-indigo-500 flex justify-between items-center">
                     <div>
                       <p className="text-lg font-bold text-gray-800">
@@ -162,19 +170,16 @@ export default function AgendamentosPage() {
                       <p className="text-xs text-gray-400">Prof: {agenda.profissional.nome}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${agenda.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : agenda.status === 'CANCELADO' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${agenda.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                         {agenda.status}
                         </span>
                         
-                        {/* BOTÃO DE CANCELAR (Só aparece se não estiver cancelado) */}
-                        {agenda.status !== 'CANCELADO' && (
-                            <button 
-                                onClick={() => handleCancel(agenda.id)}
-                                className="text-red-600 text-sm hover:underline font-semibold"
-                            >
-                                Cancelar
-                            </button>
-                        )}
+                        <button 
+                            onClick={() => handleCancel(agenda.id)}
+                            className="text-red-600 text-sm hover:underline font-semibold"
+                        >
+                            Cancelar
+                        </button>
                     </div>
                   </li>
                 ))}
