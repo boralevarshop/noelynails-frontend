@@ -12,7 +12,6 @@ export default function Dashboard() {
     const dadosSalvos = localStorage.getItem('usuario_saas');
     
     if (!dadosSalvos) {
-      // Se não tiver nada salvo, chuta de volta pro login
       router.push('/login');
       return;
     }
@@ -28,10 +27,21 @@ export default function Dashboard() {
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center">
+            <div className="flex items-center gap-4">
               <h1 className="text-xl font-bold text-indigo-600">
                 {usuario.tenant.nome}
               </h1>
+              <div className="hidden md:flex space-x-4 ml-8">
+                <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+                  Agenda
+                </button>
+                <button onClick={() => router.push('/dashboard/servicos')} className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+                  Serviços
+                </button>
+                <button onClick={() => router.push('/dashboard/profissionais')} className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+                  Equipe
+                </button>
+              </div>
             </div>
             <div className="flex items-center">
               <span className="text-gray-700 mr-4">Olá, {usuario.nome}</span>
@@ -40,7 +50,7 @@ export default function Dashboard() {
                   localStorage.removeItem('usuario_saas');
                   router.push('/login');
                 }}
-                className="text-sm text-red-600 hover:text-red-800"
+                className="text-sm text-red-600 hover:text-red-800 font-semibold"
               >
                 Sair
               </button>
@@ -81,7 +91,10 @@ export default function Dashboard() {
             {/* Card de Ação Rápida */}
             <div className="bg-white overflow-hidden shadow rounded-lg">
               <div className="p-5">
-                <button className="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700">
+                <button 
+                  onClick={() => router.push('/dashboard/agendamentos')} 
+                  className="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 transition-colors"
+                >
                   + Novo Agendamento
                 </button>
               </div>
