@@ -11,7 +11,7 @@ export default function AgendamentosPage() {
   const [usuario, setUsuario] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Estados separados para Data e Hora (melhor UX)
+  // Estados separados para Data e Hora
   const [dataSelecionada, setDataSelecionada] = useState('');
   const [horarioSelecionado, setHorarioSelecionado] = useState('');
 
@@ -79,7 +79,7 @@ export default function AgendamentosPage() {
     if (!usuario) return;
 
     try {
-      // Combina Data + Horário para o formato ISO que o banco espera
+      // Combina Data + Horário para o formato ISO
       const dataHoraCombinada = new Date(`${dataSelecionada}T${horarioSelecionado}:00`);
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -96,7 +96,6 @@ export default function AgendamentosPage() {
 
       if (res.ok) {
         alert('Agendamento realizado com sucesso! 📅');
-        // Limpa campos
         setNovoAgendamento({ nomeCliente: '', telefoneCliente: '', serviceId: '', professionalId: '' });
         setDataSelecionada('');
         setHorarioSelecionado('');
@@ -168,7 +167,6 @@ export default function AgendamentosPage() {
                 </div>
               </div>
 
-              {/* SELEÇÃO DE DATA E HORA MELHORADA */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Dia</label>
@@ -202,7 +200,7 @@ export default function AgendamentosPage() {
             </form>
           </div>
 
-          {/* Lista */}
+          {/* Lista de Agendamentos */}
           <div className="lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Próximos Horários</h2>
             {loading ? <p>Carregando...</p> : agendamentos.length === 0 ? (
@@ -218,9 +216,16 @@ export default function AgendamentosPage() {
                       <p className="text-gray-600">{agenda.cliente.nome} - {agenda.servico.nome}</p>
                       <p className="text-xs text-gray-400">Prof: {agenda.profissional.nome}</p>
                     </div>
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800">
+                    
+                    {/* CORREÇÃO DE CORES AQUI */}
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold 
+                      ${agenda.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : 
+                        agenda.status === 'CANCELADO' ? 'bg-red-100 text-red-800' : 
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
                       {agenda.status}
                     </span>
+
                   </li>
                 ))}
               </ul>
