@@ -34,10 +34,9 @@ export default function LoginPage() {
       // Salva os dados do usuário no navegador (localStorage)
       localStorage.setItem('usuario_saas', JSON.stringify(data.usuario));
 
-      alert(`Bem-vindo de volta, ${data.usuario.nome}!`);
-      
-      // Redireciona para o painel (que vamos criar depois)
-      // router.push('/dashboard'); 
+      // REDIRECIONAMENTO ATIVADO!
+      // Assim que salvar o login, manda o usuário para o Dashboard
+      router.push('/dashboard'); 
       
     } catch (error: any) {
       alert(error.message);
