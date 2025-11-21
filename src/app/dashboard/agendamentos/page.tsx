@@ -10,6 +10,9 @@ export default function AgendamentosPage() {
   const [profissionais, setProfissionais] = useState<any[]>([]);
   const [usuario, setUsuario] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
+  // NOVO: Controle para mostrar/esconder cancelados
+  const [mostrarCancelados, setMostrarCancelados] = useState(false);
 
   const [dataSelecionada, setDataSelecionada] = useState('');
   const [horarioSelecionado, setHorarioSelecionado] = useState('');
@@ -78,13 +81,11 @@ export default function AgendamentosPage() {
         setDataSelecionada(''); setHorarioSelecionado('');
         carregarDados(usuario.tenant.id);
       } else { 
-        // CORREÇÃO: Captura a mensagem de erro exata do Backend
         const erro = await res.json();
-        // O NestJS retorna 'message' (pode ser string ou array)
         const msg = Array.isArray(erro.message) ? erro.message[0] : erro.message;
         alert(`Atenção: ${msg || 'Erro ao agendar'}`);
       }
-    } catch (error) { alert('Erro de conexão com o servidor'); }
+    } catch (error) { alert('Erro de conexão'); }
   };
 
   const handleCancel = async (id: string) => {
@@ -98,6 +99,12 @@ export default function AgendamentosPage() {
       } else { alert('Erro ao cancelar'); }
     } catch (error) { alert('Erro de conexão'); }
   };
+
+  // Lógica do Filtro
+  const agendamentosFiltrados = agendamentos.filter(agenda => {
+    if (mostrarCancelados) return true; // Se marcado, mostra tudo
+    return agenda.status !== 'CANCELADO'; // Se desmarcado, esconde cancelados
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -153,33 +160,47 @@ export default function AgendamentosPage() {
             </form>
           </div>
 
-          {/* Lista FILTRADA (Sem Cancelados) */}
+          {/* Lista */}
           <div className="lg:col-span-2">
-            <h2 className="text-lg font-semibold mb-4">Próximos Horários</h2>
-            {loading ? <p>Carregando...</p> : agendamentos.length === 0 ? <p className="text-gray-500">Agenda vazia.</p> : (
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Próximos Horários</h2>
+              
+              {/* CHECKBOX PARA MOSTRAR CANCELADOS */}
+              <label className="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={mostrarCancelados}
+                  onChange={e => setMostrarCancelados(e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>Mostrar cancelados</span>
+              </label>
+            </div>
+
+            {loading ? <p>Carregando...</p> : agendamentosFiltrados.length === 0 ? <p className="text-gray-500">Nenhum agendamento encontrado.</p> : (
               <ul className="space-y-3">
-                {agendamentos
-                  .filter(agenda => agenda.status !== 'CANCELADO') // FILTRO AQUI: Esconde os cancelados
-                  .map((agenda) => (
-                  <li key={agenda.id} className="bg-white p-4 rounded-lg shadow border-l-4 border-indigo-500 flex justify-between items-center">
+                {agendamentosFiltrados.map((agenda) => (
+                  <li key={agenda.id} className={`p-4 rounded-lg shadow border-l-4 flex justify-between items-center ${agenda.status === 'CANCELADO' ? 'bg-gray-50 border-gray-300 opacity-75' : 'bg-white border-indigo-500'}`}>
                     <div>
-                      <p className="text-lg font-bold text-gray-800">
+                      <p className={`text-lg font-bold ${agenda.status === 'CANCELADO' ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
                         {new Date(agenda.dataHora).toLocaleDateString('pt-BR')} às {new Date(agenda.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
                       </p>
                       <p className="text-gray-600">{agenda.cliente.nome} - {agenda.servico.nome}</p>
                       <p className="text-xs text-gray-400">Prof: {agenda.profissional.nome}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${agenda.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${agenda.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : agenda.status === 'CANCELADO' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
                         {agenda.status}
                         </span>
                         
-                        <button 
-                            onClick={() => handleCancel(agenda.id)}
-                            className="text-red-600 text-sm hover:underline font-semibold"
-                        >
-                            Cancelar
-                        </button>
+                        {agenda.status !== 'CANCELADO' && (
+                            <button 
+                                onClick={() => handleCancel(agenda.id)}
+                                className="text-red-600 text-sm hover:underline font-semibold"
+                            >
+                                Cancelar
+                            </button>
+                        )}
                     </div>
                   </li>
                 ))}
