@@ -11,7 +11,7 @@ export default function AgendamentosPage() {
   const [usuario, setUsuario] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // NOVO: Controle para mostrar/esconder cancelados
+  // Controle para mostrar/esconder cancelados
   const [mostrarCancelados, setMostrarCancelados] = useState(false);
 
   const [dataSelecionada, setDataSelecionada] = useState('');
@@ -100,10 +100,9 @@ export default function AgendamentosPage() {
     } catch (error) { alert('Erro de conexão'); }
   };
 
-  // Lógica do Filtro
   const agendamentosFiltrados = agendamentos.filter(agenda => {
-    if (mostrarCancelados) return true; // Se marcado, mostra tudo
-    return agenda.status !== 'CANCELADO'; // Se desmarcado, esconde cancelados
+    if (mostrarCancelados) return true;
+    return agenda.status !== 'CANCELADO';
   });
 
   return (
@@ -164,15 +163,8 @@ export default function AgendamentosPage() {
           <div className="lg:col-span-2">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Próximos Horários</h2>
-              
-              {/* CHECKBOX PARA MOSTRAR CANCELADOS */}
               <label className="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={mostrarCancelados}
-                  onChange={e => setMostrarCancelados(e.target.checked)}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
+                <input type="checkbox" checked={mostrarCancelados} onChange={e => setMostrarCancelados(e.target.checked)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                 <span>Mostrar cancelados</span>
               </label>
             </div>
@@ -185,7 +177,13 @@ export default function AgendamentosPage() {
                       <p className={`text-lg font-bold ${agenda.status === 'CANCELADO' ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
                         {new Date(agenda.dataHora).toLocaleDateString('pt-BR')} às {new Date(agenda.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
                       </p>
-                      <p className="text-gray-600">{agenda.cliente.nome} - {agenda.servico.nome}</p>
+                      
+                      {/* INFO DO SERVIÇO COM DURAÇÃO */}
+                      <p className="text-gray-600 font-medium">
+                        {agenda.cliente.nome} - <span className="text-indigo-600">{agenda.servico.nome}</span> 
+                        <span className="text-gray-400 text-sm ml-1">({agenda.servico.duracaoMin} min)</span>
+                      </p>
+                      
                       <p className="text-xs text-gray-400">Prof: {agenda.profissional.nome}</p>
                     </div>
                     <div className="flex items-center gap-3">
