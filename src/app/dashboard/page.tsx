@@ -9,7 +9,6 @@ export default function Dashboard() {
   const [agendamentos, setAgendamentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Calcula estatísticas reais
   const [stats, setStats] = useState({
     hoje: 0,
     faturamento: 0
@@ -17,12 +16,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     const dadosSalvos = localStorage.getItem('usuario_saas');
-    
     if (!dadosSalvos) {
       router.push('/login');
       return;
     }
-
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
     fetchDados(user.tenant.id);
@@ -34,15 +31,12 @@ export default function Dashboard() {
       const res = await fetch(`${apiUrl}/appointments/tenant/${tenantId}`);
       const data = await res.json();
       
-      // Filtra apenas os não cancelados
       const ativos = data.filter((a: any) => a.status !== 'CANCELADO');
       setAgendamentos(ativos);
 
-      // Calcula estatísticas simples
       const hoje = new Date().toISOString().split('T')[0];
       const agendamentosHoje = ativos.filter((a: any) => a.dataHora.startsWith(hoje));
       
-      // Soma faturamento (Serviço preço)
       const totalMes = ativos.reduce((acc: number, curr: any) => {
         return acc + Number(curr.servico.preco);
       }, 0);
@@ -59,19 +53,17 @@ export default function Dashboard() {
     }
   };
 
-  // Função para renderizar os cards dos próximos dias
   const renderAgendaSemana = () => {
     const dias = [];
     const hoje = new Date();
 
-    for (let i = 0; i < 5; i++) { // Mostra os próximos 5 dias
+    for (let i = 0; i < 5; i++) {
       const diaAtual = new Date(hoje);
       diaAtual.setDate(hoje.getDate() + i);
       
-      const dataString = diaAtual.toLocaleDateString('pt-BR'); // DD/MM/AAAA
+      const dataString = diaAtual.toLocaleDateString('pt-BR');
       const nomeDia = diaAtual.toLocaleDateString('pt-BR', { weekday: 'long' });
       
-      // Filtra agendamentos desse dia
       const agendamentosDoDia = agendamentos.filter((a: any) => {
         const dataAgendamento = new Date(a.dataHora).toLocaleDateString('pt-BR');
         return dataAgendamento === dataString;
@@ -108,7 +100,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Barra Superior */}
+      {/* Barra Superior Fixa */}
       <nav className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -116,14 +108,17 @@ export default function Dashboard() {
               <h1 className="text-xl font-bold text-indigo-600">
                 {usuario.tenant.nome}
               </h1>
+              
+              {/* MENU DESKTOP (Só aparece no PC) */}
               <div className="hidden md:flex space-x-2 ml-8">
                 <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
                 <button onClick={() => router.push('/dashboard/servicos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Serviços</button>
                 <button onClick={() => router.push('/dashboard/profissionais')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Equipe</button>
               </div>
             </div>
+            
             <div className="flex items-center">
-              <span className="text-gray-700 mr-4 text-sm">Olá, {usuario.nome}</span>
+              <span className="text-gray-700 mr-4 text-sm truncate max-w-[100px] md:max-w-none">{usuario.nome}</span>
               <button 
                 onClick={() => {
                   localStorage.removeItem('usuario_saas');
@@ -134,6 +129,21 @@ export default function Dashboard() {
                 Sair
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* MENU MOBILE (Só aparece no Celular) */}
+        <div className="md:hidden border-t border-gray-200 bg-gray-50">
+          <div className="grid grid-cols-3 divide-x divide-gray-200">
+            <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-sm font-medium text-indigo-600 hover:bg-gray-100">
+              📅 Agenda
+            </button>
+            <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-sm font-medium text-gray-600 hover:bg-gray-100">
+              💅 Serviços
+            </button>
+            <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-sm font-medium text-gray-600 hover:bg-gray-100">
+              👥 Equipe
+            </button>
           </div>
         </div>
       </nav>
