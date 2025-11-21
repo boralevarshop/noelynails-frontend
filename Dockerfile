@@ -8,8 +8,13 @@ RUN npm install
 
 COPY . .
 
-# Desabilita telemetria do Next.js para agilizar
+# Desabilita telemetria
 ENV NEXT_TELEMETRY_DISABLED 1
+
+# --- CORREÇÃO AQUI ---
+# Definimos a URL da API explicitamente para o momento da construção
+ENV NEXT_PUBLIC_API_URL=https://api.devhenri.shop
+# ---------------------
 
 # Gera os arquivos estáticos do site
 RUN npm run build
@@ -22,11 +27,11 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Cria um usuário para não rodar como root (segurança)
+# Cria um usuário para segurança
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copia apenas o necessário da etapa anterior
+# Copia apenas o necessário
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
