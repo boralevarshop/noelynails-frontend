@@ -5,18 +5,22 @@ import { useRouter } from 'next/navigation';
 
 export default function AgendamentosPage() {
   const router = useRouter();
+  
+  // Dados do sistema
   const [agendamentos, setAgendamentos] = useState<any[]>([]);
   const [servicos, setServicos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
+  const [clientes, setClientes] = useState<any[]>([]); // LISTA DE CLIENTES
+  
   const [usuario, setUsuario] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // Controle para mostrar/esconder cancelados
+  // Filtro visual
   const [mostrarCancelados, setMostrarCancelados] = useState(false);
 
+  // Formulário
   const [dataSelecionada, setDataSelecionada] = useState('');
   const [horarioSelecionado, setHorarioSelecionado] = useState('');
-
   const [novoAgendamento, setNovoAgendamento] = useState({
     nomeCliente: '',
     telefoneCliente: '',
@@ -49,14 +53,41 @@ export default function AgendamentosPage() {
   const carregarDados = async (tenantId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const resServicos = await fetch(`${apiUrl}/services/tenant/${tenantId}`);
-      setServicos(await resServicos.json());
-      const resProf = await fetch(`${apiUrl}/professionals/tenant/${tenantId}`);
+      
+      // Busca tudo em paralelo para ser rápido
+      const [resServ, resProf, resAgenda, resCli] = await Promise.all([
+        fetch(`${apiUrl}/services/tenant/${tenantId}`),
+        fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
+        fetch(`${apiUrl}/appointments/tenant/${tenantId}`),
+        fetch(`${apiUrl}/clients/tenant/${tenantId}`) // Busca clientes
+      ]);
+
+      setServicos(await resServ.json());
       setProfissionais(await resProf.json());
-      const resAgenda = await fetch(`${apiUrl}/appointments/tenant/${tenantId}`);
       setAgendamentos(await resAgenda.json());
+      setClientes(await resCli.json()); // Salva clientes na memória
+
     } catch (error) { console.error(error); } 
     finally { setLoading(false); }
+  };
+
+  // FUNÇÃO MÁGICA: Ao escolher um nome, preenche o telefone
+  const handleNomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nomeDigitado = e.target.value;
+    
+    // Atualiza o nome no form
+    setNovoAgendamento(prev => ({ ...prev, nomeCliente: nomeDigitado }));
+
+    // Tenta achar o cliente na lista
+    const clienteEncontrado = clientes.find(c => c.nome === nomeDigitado);
+    if (clienteEncontrado) {
+      // Se achou, preenche o telefone automaticamente!
+      setNovoAgendamento(prev => ({ 
+        ...prev, 
+        nomeCliente: nomeDigitado,
+        telefoneCliente: clienteEncontrado.telefone 
+      }));
+    }
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -79,7 +110,7 @@ export default function AgendamentosPage() {
         alert('Agendamento realizado! 📅');
         setNovoAgendamento({ nomeCliente: '', telefoneCliente: '', serviceId: '', professionalId: '' });
         setDataSelecionada(''); setHorarioSelecionado('');
-        carregarDados(usuario.tenant.id);
+        carregarDados(usuario.tenant.id); // Recarrega para atualizar lista e pegar cliente novo se houver
       } else { 
         const erro = await res.json();
         const msg = Array.isArray(erro.message) ? erro.message[0] : erro.message;
@@ -118,10 +149,27 @@ export default function AgendamentosPage() {
           <div className="bg-white p-6 rounded-lg shadow h-fit">
             <h2 className="text-lg font-semibold mb-4 text-indigo-600">Novo Agendamento</h2>
             <form onSubmit={handleCreate} className="space-y-4">
+              
+              {/* CAMPO DE NOME COM AUTO-COMPLETE */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">Cliente</label>
-                <input type="text" required className="mt-1 block w-full rounded border-gray-300 border p-2" value={novoAgendamento.nomeCliente} onChange={e => setNovoAgendamento({...novoAgendamento, nomeCliente: e.target.value})} />
+                <label className="block text-sm font-medium text-gray-700">Cliente (Nome)</label>
+                <input 
+                  list="lista-clientes" // Conecta com o datalist abaixo
+                  type="text" 
+                  required 
+                  className="mt-1 block w-full rounded border-gray-300 border p-2" 
+                  value={novoAgendamento.nomeCliente} 
+                  onChange={handleNomeChange}
+                  placeholder="Digite para buscar..."
+                />
+                {/* Lista oculta de sugestões */}
+                <datalist id="lista-clientes">
+                  {clientes.map(cli => (
+                    <option key={cli.id} value={cli.nome} />
+                  ))}
+                </datalist>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700">WhatsApp</label>
                 <input type="text" required className="mt-1 block w-full rounded border-gray-300 border p-2" placeholder="11999999999" value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} />
@@ -177,27 +225,18 @@ export default function AgendamentosPage() {
                       <p className={`text-lg font-bold ${agenda.status === 'CANCELADO' ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
                         {new Date(agenda.dataHora).toLocaleDateString('pt-BR')} às {new Date(agenda.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
                       </p>
-                      
-                      {/* INFO DO SERVIÇO COM DURAÇÃO */}
-                      <p className="text-gray-600 font-medium">
+                      <p className="text-gray-600">
                         {agenda.cliente.nome} - <span className="text-indigo-600">{agenda.servico.nome}</span> 
                         <span className="text-gray-400 text-sm ml-1">({agenda.servico.duracaoMin} min)</span>
                       </p>
-                      
                       <p className="text-xs text-gray-400">Prof: {agenda.profissional.nome}</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${agenda.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : agenda.status === 'CANCELADO' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
                         {agenda.status}
                         </span>
-                        
                         {agenda.status !== 'CANCELADO' && (
-                            <button 
-                                onClick={() => handleCancel(agenda.id)}
-                                className="text-red-600 text-sm hover:underline font-semibold"
-                            >
-                                Cancelar
-                            </button>
+                            <button onClick={() => handleCancel(agenda.id)} className="text-red-600 text-sm hover:underline font-semibold">Cancelar</button>
                         )}
                     </div>
                   </li>

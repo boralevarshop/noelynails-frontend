@@ -1,251 +1,186 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function AgendamentosPage() {
+export default function Dashboard() {
   const router = useRouter();
-  
-  // Dados do sistema
-  const [agendamentos, setAgendamentos] = useState<any[]>([]);
-  const [servicos, setServicos] = useState<any[]>([]);
-  const [profissionais, setProfissionais] = useState<any[]>([]);
-  const [clientes, setClientes] = useState<any[]>([]); // LISTA DE CLIENTES
-  
   const [usuario, setUsuario] = useState<any>(null);
+  const [agendamentos, setAgendamentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Filtro visual
-  const [mostrarCancelados, setMostrarCancelados] = useState(false);
 
-  // Formulário
-  const [dataSelecionada, setDataSelecionada] = useState('');
-  const [horarioSelecionado, setHorarioSelecionado] = useState('');
-  const [novoAgendamento, setNovoAgendamento] = useState({
-    nomeCliente: '',
-    telefoneCliente: '',
-    serviceId: '',
-    professionalId: ''
+  const [stats, setStats] = useState({
+    hoje: 0,
+    faturamento: 0
   });
-
-  const horariosDisponiveis = (() => {
-    const horarios = [];
-    let hora = 8;
-    let minuto = 0;
-    while (hora < 20) {
-      const h = hora.toString().padStart(2, '0');
-      const m = minuto.toString().padStart(2, '0');
-      horarios.push(`${h}:${m}`);
-      minuto += 30;
-      if (minuto === 60) { minuto = 0; hora++; }
-    }
-    return horarios;
-  })();
 
   useEffect(() => {
     const dadosSalvos = localStorage.getItem('usuario_saas');
-    if (!dadosSalvos) { router.push('/login'); return; }
+    if (!dadosSalvos) {
+      router.push('/login');
+      return;
+    }
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
-    carregarDados(user.tenant.id);
+    fetchDados(user.tenant.id);
   }, []);
 
-  const carregarDados = async (tenantId: string) => {
+  const fetchDados = async (tenantId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const res = await fetch(`${apiUrl}/appointments/tenant/${tenantId}`);
+      const data = await res.json();
       
-      // Busca tudo em paralelo para ser rápido
-      const [resServ, resProf, resAgenda, resCli] = await Promise.all([
-        fetch(`${apiUrl}/services/tenant/${tenantId}`),
-        fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
-        fetch(`${apiUrl}/appointments/tenant/${tenantId}`),
-        fetch(`${apiUrl}/clients/tenant/${tenantId}`) // Busca clientes
-      ]);
+      const ativos = data.filter((a: any) => a.status !== 'CANCELADO');
+      setAgendamentos(ativos);
 
-      setServicos(await resServ.json());
-      setProfissionais(await resProf.json());
-      setAgendamentos(await resAgenda.json());
-      setClientes(await resCli.json()); // Salva clientes na memória
+      const hoje = new Date().toISOString().split('T')[0];
+      const agendamentosHoje = ativos.filter((a: any) => a.dataHora.startsWith(hoje));
+      
+      const totalMes = ativos.reduce((acc: number, curr: any) => {
+        return acc + Number(curr.servico.preco);
+      }, 0);
 
-    } catch (error) { console.error(error); } 
-    finally { setLoading(false); }
-  };
+      setStats({
+        hoje: agendamentosHoje.length,
+        faturamento: totalMes
+      });
 
-  // FUNÇÃO MÁGICA: Ao escolher um nome, preenche o telefone
-  const handleNomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const nomeDigitado = e.target.value;
-    
-    // Atualiza o nome no form
-    setNovoAgendamento(prev => ({ ...prev, nomeCliente: nomeDigitado }));
-
-    // Tenta achar o cliente na lista
-    const clienteEncontrado = clientes.find(c => c.nome === nomeDigitado);
-    if (clienteEncontrado) {
-      // Se achou, preenche o telefone automaticamente!
-      setNovoAgendamento(prev => ({ 
-        ...prev, 
-        nomeCliente: nomeDigitado,
-        telefoneCliente: clienteEncontrado.telefone 
-      }));
+    } catch (error) {
+      console.error('Erro ao buscar dados', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!usuario) return;
-    try {
-      const dataHoraCombinada = new Date(`${dataSelecionada}T${horarioSelecionado}:00`);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const res = await fetch(`${apiUrl}/appointments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...novoAgendamento,
-          tenantId: usuario.tenant.id,
-          dataHora: dataHoraCombinada.toISOString()
-        })
+  const renderAgendaSemana = () => {
+    const dias = [];
+    const hoje = new Date();
+
+    for (let i = 0; i < 5; i++) {
+      const diaAtual = new Date(hoje);
+      diaAtual.setDate(hoje.getDate() + i);
+      
+      const dataString = diaAtual.toLocaleDateString('pt-BR');
+      const nomeDia = diaAtual.toLocaleDateString('pt-BR', { weekday: 'long' });
+      
+      const agendamentosDoDia = agendamentos.filter((a: any) => {
+        const dataAgendamento = new Date(a.dataHora).toLocaleDateString('pt-BR');
+        return dataAgendamento === dataString;
       });
 
-      if (res.ok) {
-        alert('Agendamento realizado! 📅');
-        setNovoAgendamento({ nomeCliente: '', telefoneCliente: '', serviceId: '', professionalId: '' });
-        setDataSelecionada(''); setHorarioSelecionado('');
-        carregarDados(usuario.tenant.id); // Recarrega para atualizar lista e pegar cliente novo se houver
-      } else { 
-        const erro = await res.json();
-        const msg = Array.isArray(erro.message) ? erro.message[0] : erro.message;
-        alert(`Atenção: ${msg || 'Erro ao agendar'}`);
-      }
-    } catch (error) { alert('Erro de conexão'); }
+      dias.push(
+        <div key={i} className="bg-white p-4 rounded-lg shadow border border-gray-200">
+          <h3 className="font-bold text-gray-700 capitalize mb-2 border-b pb-2">
+            {i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : nomeDia} <span className="text-xs text-gray-400 font-normal">({dataString.slice(0,5)})</span>
+          </h3>
+          
+          {agendamentosDoDia.length === 0 ? (
+            <p className="text-xs text-gray-400 italic text-center py-4">Livre</p>
+          ) : (
+            <ul className="space-y-2">
+              {agendamentosDoDia.map((ag: any) => (
+                <li key={ag.id} className="text-sm bg-indigo-50 p-2 rounded border-l-2 border-indigo-500">
+                  <strong className="text-indigo-700">
+                    {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
+                  </strong>
+                  <p className="truncate text-gray-600">{ag.cliente.nome}</p>
+                  <p className="text-xs text-gray-400 truncate">{ag.profissional.nome}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    }
+    return dias;
   };
 
-  const handleCancel = async (id: string) => {
-    if (!confirm('Deseja realmente cancelar este agendamento?')) return;
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const res = await fetch(`${apiUrl}/appointments/${id}/cancel`, { method: 'PATCH' });
-      if (res.ok) {
-        alert('Agendamento cancelado.');
-        carregarDados(usuario.tenant.id);
-      } else { alert('Erro ao cancelar'); }
-    } catch (error) { alert('Erro de conexão'); }
-  };
-
-  const agendamentosFiltrados = agendamentos.filter(agenda => {
-    if (mostrarCancelados) return true;
-    return agenda.status !== 'CANCELADO';
-  });
+  if (!usuario) return <div className="p-10">Carregando...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Agenda Inteligente</h1>
-          <button onClick={() => router.push('/dashboard')} className="text-gray-600 hover:text-gray-900">← Voltar</button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Form */}
-          <div className="bg-white p-6 rounded-lg shadow h-fit">
-            <h2 className="text-lg font-semibold mb-4 text-indigo-600">Novo Agendamento</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
+    <div className="min-h-screen bg-gray-100">
+      {/* Barra Superior Fixa */}
+      <nav className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center gap-4">
+              <h1 className="text-xl font-bold text-indigo-600">
+                {usuario.tenant.nome}
+              </h1>
               
-              {/* CAMPO DE NOME COM AUTO-COMPLETE */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Cliente (Nome)</label>
-                <input 
-                  list="lista-clientes" // Conecta com o datalist abaixo
-                  type="text" 
-                  required 
-                  className="mt-1 block w-full rounded border-gray-300 border p-2" 
-                  value={novoAgendamento.nomeCliente} 
-                  onChange={handleNomeChange}
-                  placeholder="Digite para buscar..."
-                />
-                {/* Lista oculta de sugestões */}
-                <datalist id="lista-clientes">
-                  {clientes.map(cli => (
-                    <option key={cli.id} value={cli.nome} />
-                  ))}
-                </datalist>
+              {/* MENU DESKTOP (Só aparece no PC) */}
+              <div className="hidden md:flex space-x-2 ml-8">
+                <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
+                <button onClick={() => router.push('/dashboard/servicos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Serviços</button>
+                <button onClick={() => router.push('/dashboard/profissionais')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Equipe</button>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">WhatsApp</label>
-                <input type="text" required className="mt-1 block w-full rounded border-gray-300 border p-2" placeholder="11999999999" value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Serviço</label>
-                  <select required className="mt-1 block w-full rounded border-gray-300 border p-2" value={novoAgendamento.serviceId} onChange={e => setNovoAgendamento({...novoAgendamento, serviceId: e.target.value})}>
-                    <option value="">Selecione...</option>
-                    {servicos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Profissional</label>
-                  <select required className="mt-1 block w-full rounded border-gray-300 border p-2" value={novoAgendamento.professionalId} onChange={e => setNovoAgendamento({...novoAgendamento, professionalId: e.target.value})}>
-                    <option value="">Selecione...</option>
-                    {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Dia</label>
-                  <input type="date" required className="mt-1 block w-full rounded border-gray-300 border p-2" value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Horário</label>
-                  <select required className="mt-1 block w-full rounded border-gray-300 border p-2" value={horarioSelecionado} onChange={e => setHorarioSelecionado(e.target.value)}>
-                    <option value="">Selecione...</option>
-                    {horariosDisponiveis.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </div>
-              </div>
-              <button type="submit" className="w-full bg-indigo-600 text-white py-3 px-4 rounded font-bold hover:bg-indigo-700">Confirmar</button>
-            </form>
-          </div>
-
-          {/* Lista */}
-          <div className="lg:col-span-2">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Próximos Horários</h2>
-              <label className="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer">
-                <input type="checkbox" checked={mostrarCancelados} onChange={e => setMostrarCancelados(e.target.checked)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                <span>Mostrar cancelados</span>
-              </label>
             </div>
-
-            {loading ? <p>Carregando...</p> : agendamentosFiltrados.length === 0 ? <p className="text-gray-500">Nenhum agendamento encontrado.</p> : (
-              <ul className="space-y-3">
-                {agendamentosFiltrados.map((agenda) => (
-                  <li key={agenda.id} className={`p-4 rounded-lg shadow border-l-4 flex justify-between items-center ${agenda.status === 'CANCELADO' ? 'bg-gray-50 border-gray-300 opacity-75' : 'bg-white border-indigo-500'}`}>
-                    <div>
-                      <p className={`text-lg font-bold ${agenda.status === 'CANCELADO' ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
-                        {new Date(agenda.dataHora).toLocaleDateString('pt-BR')} às {new Date(agenda.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
-                      </p>
-                      <p className="text-gray-600">
-                        {agenda.cliente.nome} - <span className="text-indigo-600">{agenda.servico.nome}</span> 
-                        <span className="text-gray-400 text-sm ml-1">({agenda.servico.duracaoMin} min)</span>
-                      </p>
-                      <p className="text-xs text-gray-400">Prof: {agenda.profissional.nome}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${agenda.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : agenda.status === 'CANCELADO' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {agenda.status}
-                        </span>
-                        {agenda.status !== 'CANCELADO' && (
-                            <button onClick={() => handleCancel(agenda.id)} className="text-red-600 text-sm hover:underline font-semibold">Cancelar</button>
-                        )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+            
+            <div className="flex items-center">
+              <span className="text-gray-700 mr-4 text-sm truncate max-w-[100px] md:max-w-none">{usuario.nome}</span>
+              <button 
+                onClick={() => {
+                  localStorage.removeItem('usuario_saas');
+                  router.push('/login');
+                }}
+                className="text-sm text-red-600 hover:text-red-800 font-semibold"
+              >
+                Sair
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+
+        {/* MENU MOBILE (Só aparece no Celular) */}
+        <div className="md:hidden border-t border-gray-200 bg-gray-50">
+          <div className="grid grid-cols-3 divide-x divide-gray-200">
+            <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-sm font-medium text-indigo-600 hover:bg-gray-100">
+              📅 Agenda
+            </button>
+            <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-sm font-medium text-gray-600 hover:bg-gray-100">
+              💅 Serviços
+            </button>
+            <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-sm font-medium text-gray-600 hover:bg-gray-100">
+              👥 Equipe
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Conteúdo Principal */}
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        
+        {/* Cards de Estatísticas */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white overflow-hidden shadow rounded-lg p-5">
+            <dt className="text-sm font-medium text-gray-500 truncate">Agendamentos Hoje</dt>
+            <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.hoje}</dd>
+          </div>
+          
+          <div className="bg-white overflow-hidden shadow rounded-lg p-5">
+            <dt className="text-sm font-medium text-gray-500 truncate">Faturamento Estimado</dt>
+            <dd className="mt-1 text-3xl font-semibold text-green-600">
+              R$ {stats.faturamento.toFixed(2)}
+            </dd>
+          </div>
+
+          <div className="bg-indigo-600 overflow-hidden shadow rounded-lg p-5 flex items-center justify-center cursor-pointer hover:bg-indigo-700 transition-colors" onClick={() => router.push('/dashboard/agendamentos')}>
+            <span className="text-white font-bold text-lg">+ Novo Agendamento</span>
+          </div>
+        </div>
+
+        {/* Agenda da Semana */}
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Visão da Semana</h2>
+        {loading ? (
+          <p>Carregando agenda...</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {renderAgendaSemana()}
+          </div>
+        )}
+
+      </main>
     </div>
   );
 }
