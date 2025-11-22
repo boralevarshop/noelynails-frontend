@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 
 export default function AgendamentosPage() {
   const router = useRouter();
-  
-  // Dados do sistema
   const [agendamentos, setAgendamentos] = useState<any[]>([]);
   const [servicos, setServicos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
@@ -15,10 +13,9 @@ export default function AgendamentosPage() {
   const [usuario, setUsuario] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // Filtro visual
-  const [mostrarCancelados, setMostrarCancelados] = useState(false);
+  // Filtro: Mostra Cancelados E Concluídos apenas se marcado
+  const [mostrarHistorico, setMostrarHistorico] = useState(false);
 
-  // Formulário
   const [dataSelecionada, setDataSelecionada] = useState('');
   const [horarioSelecionado, setHorarioSelecionado] = useState('');
   const [novoAgendamento, setNovoAgendamento] = useState({
@@ -28,12 +25,10 @@ export default function AgendamentosPage() {
     professionalId: ''
   });
 
-  // Gera lista de horários de 30 em 30 min (das 08:00 às 23:30)
   const horariosDisponiveis = (() => {
     const horarios = [];
     let hora = 8;
     let minuto = 0;
-    // ALTERADO AQUI: Vai até as 23h
     while (hora <= 23) {
       const h = hora.toString().padStart(2, '0');
       const m = minuto.toString().padStart(2, '0');
@@ -55,7 +50,6 @@ export default function AgendamentosPage() {
   const carregarDados = async (tenantId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      
       const [resServ, resProf, resAgenda, resCli] = await Promise.all([
         fetch(`${apiUrl}/services/tenant/${tenantId}`),
         fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
@@ -72,7 +66,6 @@ export default function AgendamentosPage() {
         if (Array.isArray(dados)) setAgendamentos(dados);
         else setAgendamentos([]);
       }
-
     } catch (error) { console.error(error); } 
     finally { setLoading(false); }
   };
@@ -82,11 +75,7 @@ export default function AgendamentosPage() {
     setNovoAgendamento(prev => ({ ...prev, nomeCliente: nomeDigitado }));
     const clienteEncontrado = clientes.find(c => c.nome === nomeDigitado);
     if (clienteEncontrado) {
-      setNovoAgendamento(prev => ({ 
-        ...prev, 
-        nomeCliente: nomeDigitado,
-        telefoneCliente: clienteEncontrado.telefone 
-      }));
+      setNovoAgendamento(prev => ({ ...prev, nomeCliente: nomeDigitado, telefoneCliente: clienteEncontrado.telefone }));
     }
   };
 
@@ -128,7 +117,6 @@ export default function AgendamentosPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nome: usuario.nome }) 
       });
-      
       if (res.ok) {
         alert('Agendamento cancelado.');
         carregarDados(usuario.tenant.id);
@@ -136,9 +124,11 @@ export default function AgendamentosPage() {
     } catch (error) { alert('Erro de conexão'); }
   };
 
+  // FILTRO INTELIGENTE
   const agendamentosFiltrados = agendamentos.filter(agenda => {
-    if (mostrarCancelados) return true;
-    return agenda.status !== 'CANCELADO';
+    if (mostrarHistorico) return true; // Se marcado, mostra tudo (Concluído e Cancelado)
+    // Se não marcado, esconde Cancelado e Concluído
+    return agenda.status !== 'CANCELADO' && agenda.status !== 'CONCLUIDO';
   });
 
   return (
@@ -156,17 +146,8 @@ export default function AgendamentosPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Cliente (Nome)</label>
-                <input 
-                  list="lista-clientes"
-                  type="text" required 
-                  className="mt-1 block w-full rounded border-gray-300 border p-2" 
-                  value={novoAgendamento.nomeCliente} 
-                  onChange={handleNomeChange}
-                  placeholder="Digite para buscar..."
-                />
-                <datalist id="lista-clientes">
-                  {clientes.map(cli => (<option key={cli.id} value={cli.nome} />))}
-                </datalist>
+                <input list="lista-clientes" type="text" required className="mt-1 block w-full rounded border-gray-300 border p-2" value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Digite para buscar..." />
+                <datalist id="lista-clientes">{clientes.map(cli => (<option key={cli.id} value={cli.nome} />))}</datalist>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">WhatsApp</label>
@@ -210,17 +191,20 @@ export default function AgendamentosPage() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Próximos Horários</h2>
               <label className="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer">
-                <input type="checkbox" checked={mostrarCancelados} onChange={e => setMostrarCancelados(e.target.checked)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                <span>Mostrar cancelados</span>
+                <input type="checkbox" checked={mostrarHistorico} onChange={e => setMostrarHistorico(e.target.checked)} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                <span>Mostrar histórico (Passados)</span>
               </label>
             </div>
 
-            {loading ? <p>Carregando...</p> : agendamentosFiltrados.length === 0 ? <p className="text-gray-500">Nenhum agendamento encontrado.</p> : (
+            {loading ? <p>Carregando...</p> : agendamentosFiltrados.length === 0 ? <p className="text-gray-500">Nenhum agendamento ativo.</p> : (
               <ul className="space-y-3">
                 {agendamentosFiltrados.map((agenda) => (
-                  <li key={agenda.id} className={`p-4 rounded-lg shadow border-l-4 flex justify-between items-center ${agenda.status === 'CANCELADO' ? 'bg-gray-50 border-gray-300 opacity-75' : 'bg-white border-indigo-500'}`}>
+                  <li key={agenda.id} className={`p-4 rounded-lg shadow border-l-4 flex justify-between items-center 
+                    ${agenda.status === 'CANCELADO' ? 'bg-gray-50 border-red-300 opacity-75' : 
+                      agenda.status === 'CONCLUIDO' ? 'bg-gray-50 border-gray-400 opacity-75' :
+                      'bg-white border-indigo-500'}`}>
                     <div>
-                      <p className={`text-lg font-bold ${agenda.status === 'CANCELADO' ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
+                      <p className={`text-lg font-bold ${agenda.status === 'CANCELADO' || agenda.status === 'CONCLUIDO' ? 'text-gray-500' : 'text-gray-800'}`}>
                         {new Date(agenda.dataHora).toLocaleDateString('pt-BR')} às {new Date(agenda.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
                       </p>
                       <p className="text-gray-600">
@@ -234,10 +218,17 @@ export default function AgendamentosPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${agenda.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : agenda.status === 'CANCELADO' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {agenda.status}
+                        {/* CORES DINAMICAS ATUALIZADAS */}
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold 
+                          ${agenda.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : 
+                            agenda.status === 'CANCELADO' ? 'bg-red-100 text-red-800' : 
+                            agenda.status === 'CONCLUIDO' ? 'bg-gray-200 text-gray-600' :
+                            'bg-yellow-100 text-yellow-800'}`}>
+                          {agenda.status}
                         </span>
-                        {agenda.status !== 'CANCELADO' && (
+                        
+                        {/* Só mostra cancelar se ainda não aconteceu */}
+                        {agenda.status === 'CONFIRMADO' && (
                             <button onClick={() => handleCancel(agenda.id)} className="text-red-600 text-sm hover:underline font-semibold">Cancelar</button>
                         )}
                     </div>
