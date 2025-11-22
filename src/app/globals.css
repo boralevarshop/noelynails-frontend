@@ -1,35 +1,43 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Removi o bloco "Dark Mode" para garantir que o app 
+   seja sempre CLARO e legível no celular.
+*/
+
 body {
-  color: var(--foreground);
   background: var(--background);
+  color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* --- CORREÇÃO CRÍTICA PARA CELULAR (IPHONE/ANDROID) --- */
-/* Força a cor preta nos inputs para evitar "letra invisível" */
+/* --- CORREÇÃO DE TEXTO PARA CELULAR --- */
+/* Isso força o texto a ser preto e o fundo branco nos campos de digitação */
 
 input, select, textarea {
-  color: #000000 !important;            /* Texto sempre Preto Puro */
-  background-color: #ffffff !important; /* Fundo sempre Branco */
-  -webkit-text-fill-color: #000000 !important; /* Correção específica Safari/iOS */
-  opacity: 1 !important;                /* Remove transparência */
+  color: #000000 !important;            /* Texto Preto */
+  background-color: #ffffff !important; /* Fundo Branco */
+  -webkit-text-fill-color: #000000 !important; /* Fix para iPhone */
+  opacity: 1 !important;
   
-  /* Remove sombras nativas do iOS que deixam cinza */
-  -webkit-appearance: none;
-  appearance: none;
+  /* Remove estilos nativos do iPhone que atrapalham */
+  border-radius: 6px; /* Mantém a borda arredondada bonita */
 }
 
-/* Cor do Placeholder (o texto de exemplo) */
+/* Cor do texto de exemplo (Placeholder) */
 ::placeholder {
-  color: #9ca3af !important;            /* Cinza Claro (diferente do preto) */
-  -webkit-text-fill-color: #9ca3af !important;
+  color: #6b7280 !important; /* Cinza escuro legível */
+  -webkit-text-fill-color: #6b7280 !important;
   opacity: 1 !important;
 }
