@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 
 export default function AgendamentosPage() {
   const router = useRouter();
+  
+  // Dados do sistema
   const [agendamentos, setAgendamentos] = useState<any[]>([]);
   const [servicos, setServicos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
@@ -13,8 +15,10 @@ export default function AgendamentosPage() {
   const [usuario, setUsuario] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
+  // Filtro visual
   const [mostrarCancelados, setMostrarCancelados] = useState(false);
 
+  // Formulário
   const [dataSelecionada, setDataSelecionada] = useState('');
   const [horarioSelecionado, setHorarioSelecionado] = useState('');
   const [novoAgendamento, setNovoAgendamento] = useState({
@@ -24,11 +28,13 @@ export default function AgendamentosPage() {
     professionalId: ''
   });
 
+  // Gera lista de horários de 30 em 30 min (das 08:00 às 23:30)
   const horariosDisponiveis = (() => {
     const horarios = [];
     let hora = 8;
     let minuto = 0;
-    while (hora < 20) {
+    // ALTERADO AQUI: Vai até as 23h
+    while (hora <= 23) {
       const h = hora.toString().padStart(2, '0');
       const m = minuto.toString().padStart(2, '0');
       horarios.push(`${h}:${m}`);
@@ -57,22 +63,15 @@ export default function AgendamentosPage() {
         fetch(`${apiUrl}/clients/tenant/${tenantId}`)
       ]);
 
-      // --- PROTEÇÃO CONTRA ERROS ---
-      // Se a API falhar, evitamos a tela branca
       if (resServ.ok) setServicos(await resServ.json());
       if (resProf.ok) setProfissionais(await resProf.json());
       if (resCli.ok) setClientes(await resCli.json());
       
       if (resAgenda.ok) {
-        const dadosAgenda = await resAgenda.json();
-        // Verifica se é realmente uma lista (array) antes de salvar
-        if (Array.isArray(dadosAgenda)) {
-            setAgendamentos(dadosAgenda);
-        } else {
-            setAgendamentos([]); // Se der erro, lista vazia
-        }
+        const dados = await resAgenda.json();
+        if (Array.isArray(dados)) setAgendamentos(dados);
+        else setAgendamentos([]);
       }
-      // -----------------------------
 
     } catch (error) { console.error(error); } 
     finally { setLoading(false); }
@@ -157,8 +156,17 @@ export default function AgendamentosPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Cliente (Nome)</label>
-                <input list="lista-clientes" type="text" required className="mt-1 block w-full rounded border-gray-300 border p-2" value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Digite para buscar..." />
-                <datalist id="lista-clientes">{clientes.map(cli => (<option key={cli.id} value={cli.nome} />))}</datalist>
+                <input 
+                  list="lista-clientes"
+                  type="text" required 
+                  className="mt-1 block w-full rounded border-gray-300 border p-2" 
+                  value={novoAgendamento.nomeCliente} 
+                  onChange={handleNomeChange}
+                  placeholder="Digite para buscar..."
+                />
+                <datalist id="lista-clientes">
+                  {clientes.map(cli => (<option key={cli.id} value={cli.nome} />))}
+                </datalist>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">WhatsApp</label>
