@@ -57,10 +57,22 @@ export default function AgendamentosPage() {
         fetch(`${apiUrl}/clients/tenant/${tenantId}`)
       ]);
 
-      setServicos(await resServ.json());
-      setProfissionais(await resProf.json());
-      setAgendamentos(await resAgenda.json());
-      setClientes(await resCli.json());
+      // --- PROTEÇÃO CONTRA ERROS ---
+      // Se a API falhar, evitamos a tela branca
+      if (resServ.ok) setServicos(await resServ.json());
+      if (resProf.ok) setProfissionais(await resProf.json());
+      if (resCli.ok) setClientes(await resCli.json());
+      
+      if (resAgenda.ok) {
+        const dadosAgenda = await resAgenda.json();
+        // Verifica se é realmente uma lista (array) antes de salvar
+        if (Array.isArray(dadosAgenda)) {
+            setAgendamentos(dadosAgenda);
+        } else {
+            setAgendamentos([]); // Se der erro, lista vazia
+        }
+      }
+      // -----------------------------
 
     } catch (error) { console.error(error); } 
     finally { setLoading(false); }
@@ -108,7 +120,6 @@ export default function AgendamentosPage() {
     } catch (error) { alert('Erro de conexão'); }
   };
 
-  // --- CORREÇÃO: Envia o nome de quem cancelou ---
   const handleCancel = async (id: string) => {
     if (!confirm('Deseja realmente cancelar este agendamento?')) return;
     try {
@@ -116,7 +127,7 @@ export default function AgendamentosPage() {
       const res = await fetch(`${apiUrl}/appointments/${id}/cancel`, { 
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome: usuario.nome }) // Envia o nome do usuário logado
+        body: JSON.stringify({ nome: usuario.nome }) 
       });
       
       if (res.ok) {
@@ -146,17 +157,8 @@ export default function AgendamentosPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Cliente (Nome)</label>
-                <input 
-                  list="lista-clientes"
-                  type="text" required 
-                  className="mt-1 block w-full rounded border-gray-300 border p-2" 
-                  value={novoAgendamento.nomeCliente} 
-                  onChange={handleNomeChange}
-                  placeholder="Digite para buscar..."
-                />
-                <datalist id="lista-clientes">
-                  {clientes.map(cli => (<option key={cli.id} value={cli.nome} />))}
-                </datalist>
+                <input list="lista-clientes" type="text" required className="mt-1 block w-full rounded border-gray-300 border p-2" value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Digite para buscar..." />
+                <datalist id="lista-clientes">{clientes.map(cli => (<option key={cli.id} value={cli.nome} />))}</datalist>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">WhatsApp</label>
@@ -219,14 +221,12 @@ export default function AgendamentosPage() {
                       </p>
                       <p className="text-xs text-gray-400">Prof: {agenda.profissional.nome}</p>
                       
-                      {/* MOSTRA QUEM CANCELOU */}
                       {agenda.status === 'CANCELADO' && agenda.canceladoPor && (
                         <p className="text-xs text-red-500 mt-1 font-bold">Cancelado por: {agenda.canceladoPor}</p>
                       )}
-
                     </div>
                     <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${agenda.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${agenda.status === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : agenda.status === 'CANCELADO' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
                         {agenda.status}
                         </span>
                         {agenda.status !== 'CANCELADO' && (
