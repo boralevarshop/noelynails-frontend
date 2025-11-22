@@ -33,9 +33,11 @@ export default function Dashboard() {
       const res = await fetch(`${apiUrl}/appointments/tenant/${tenantId}`);
       const data = await res.json();
       
+      // Filtra apenas os não cancelados para estatísticas
       const ativos = data.filter((a: any) => a.status !== 'CANCELADO');
       setAgendamentos(ativos);
 
+      // 1. Estatísticas Globais
       const hoje = new Date().toISOString().split('T')[0];
       const agendamentosHoje = ativos.filter((a: any) => a.dataHora.startsWith(hoje));
       
@@ -48,6 +50,7 @@ export default function Dashboard() {
         faturamento: totalMes
       });
 
+      // 2. Cálculo por Profissional (Ranking)
       const agrupado: any = {};
       ativos.forEach((ag: any) => {
         const nome = ag.profissional.nome;
@@ -124,52 +127,81 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-4">
-              <h1 className="text-xl font-bold text-indigo-600 truncate">
+              <h1 className="text-xl font-bold text-indigo-600 truncate max-w-[150px] md:max-w-none">
                 {usuario.tenant.nome}
               </h1>
-              {/* MENU DESKTOP */}
-              <div className="hidden md:flex space-x-2 ml-8">
+              
+              {/* MENU DESKTOP (Visível apenas em telas grandes) */}
+              <div className="hidden md:flex space-x-1 ml-4">
                 <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
+                <button onClick={() => router.push('/dashboard/calendario')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Calendário</button>
                 <button onClick={() => router.push('/dashboard/servicos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Serviços</button>
                 <button onClick={() => router.push('/dashboard/profissionais')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Equipe</button>
                 <button onClick={() => router.push('/dashboard/clientes')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Clientes</button>
               </div>
             </div>
+            
             <div className="flex items-center">
-              <span className="text-gray-700 mr-4 text-sm truncate max-w-[100px] md:max-w-none">{usuario.nome}</span>
-              <button onClick={() => { localStorage.removeItem('usuario_saas'); router.push('/login'); }} className="text-sm text-red-600 hover:text-red-800 font-semibold">Sair</button>
+              <span className="text-gray-700 mr-4 text-sm truncate hidden md:block">Olá, {usuario.nome}</span>
+              <button 
+                onClick={() => {
+                  localStorage.removeItem('usuario_saas');
+                  router.push('/login');
+                }}
+                className="text-sm text-red-600 hover:text-red-800 font-semibold"
+              >
+                Sair
+              </button>
             </div>
           </div>
         </div>
-        {/* MENU MOBILE */}
+
+        {/* MENU MOBILE (Visível apenas em celular) */}
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
-          <div className="grid grid-cols-4 divide-x divide-gray-200">
-            <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-xs font-medium text-indigo-600 hover:bg-gray-100">📅 Agenda</button>
-            <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-xs font-medium text-gray-600 hover:bg-gray-100">💅 Serviços</button>
-            <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-xs font-medium text-gray-600 hover:bg-gray-100">👥 Equipe</button>
-            <button onClick={() => router.push('/dashboard/clientes')} className="py-3 text-xs font-medium text-gray-600 hover:bg-gray-100">👩 Clientes</button>
+          <div className="grid grid-cols-5 divide-x divide-gray-200">
+            <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium text-indigo-600 hover:bg-gray-100 flex flex-col items-center">
+              <span>📅</span> Agenda
+            </button>
+            <button onClick={() => router.push('/dashboard/calendario')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center">
+              <span>🗓️</span> Mês
+            </button>
+            <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center">
+              <span>💅</span> Serv
+            </button>
+            <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center">
+              <span>👥</span> Eqp
+            </button>
+            <button onClick={() => router.push('/dashboard/clientes')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center">
+              <span>👩</span> Cli
+            </button>
           </div>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
-        {/* Cards */}
+        {/* Cards Globais */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
             <dt className="text-sm font-medium text-gray-500 truncate">Agendamentos Hoje</dt>
             <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.hoje}</dd>
           </div>
+          
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
             <dt className="text-sm font-medium text-gray-500 truncate">Faturamento Estimado</dt>
-            <dd className="mt-1 text-3xl font-semibold text-green-600">R$ {stats.faturamento.toFixed(2)}</dd>
+            <dd className="mt-1 text-3xl font-semibold text-green-600">
+              R$ {stats.faturamento.toFixed(2)}
+            </dd>
           </div>
+
           <div className="bg-indigo-600 overflow-hidden shadow rounded-lg p-5 flex items-center justify-center cursor-pointer hover:bg-indigo-700 transition-colors" onClick={() => router.push('/dashboard/agendamentos')}>
             <span className="text-white font-bold text-lg">+ Novo Agendamento</span>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* Coluna Esquerda: Agenda da Semana */}
             <div className="lg:col-span-2">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">Visão da Semana</h2>
                 {loading ? <p>Carregando...</p> : (
@@ -178,6 +210,8 @@ export default function Dashboard() {
                     </div>
                 )}
             </div>
+
+            {/* Coluna Direita: Ranking da Equipe */}
             <div>
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
                 <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -193,14 +227,20 @@ export default function Dashboard() {
                                         <p className="text-xs text-gray-500">{prof.qtd} agendamentos</p>
                                     </div>
                                 </div>
-                                <div className="text-sm font-bold text-green-600">R$ {prof.total.toFixed(2)}</div>
+                                <div className="text-sm font-bold text-green-600">
+                                    R$ {prof.total.toFixed(2)}
+                                </div>
                             </li>
                         ))}
-                        {ranking.length === 0 && <p className="p-4 text-sm text-gray-500 text-center">Sem dados ainda.</p>}
+                        {ranking.length === 0 && (
+                            <p className="p-4 text-sm text-gray-500 text-center">Sem dados ainda.</p>
+                        )}
                     </ul>
                 </div>
             </div>
+
         </div>
+
       </main>
     </div>
   );
