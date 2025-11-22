@@ -127,11 +127,11 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-4">
-              <h1 className="text-xl font-bold text-indigo-600 truncate max-w-[150px] md:max-w-none">
+              <h1 className="text-xl font-bold text-indigo-600 truncate max-w-[120px] md:max-w-none">
                 {usuario.tenant.nome}
               </h1>
               
-              {/* MENU DESKTOP (Visível apenas em telas grandes) */}
+              {/* MENU DESKTOP */}
               <div className="hidden md:flex space-x-1 ml-4">
                 <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
                 <button onClick={() => router.push('/dashboard/calendario')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Calendário</button>
@@ -141,14 +141,24 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="flex items-center">
-              <span className="text-gray-700 mr-4 text-sm truncate hidden md:block">Olá, {usuario.nome}</span>
+            {/* PERFIL E SAIR */}
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => router.push('/dashboard/perfil')}
+                className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors group"
+              >
+                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 group-hover:bg-indigo-200">
+                    {usuario.nome.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-medium hidden md:block">Olá, {usuario.nome.split(' ')[0]}</span>
+              </button>
+
               <button 
                 onClick={() => {
                   localStorage.removeItem('usuario_saas');
                   router.push('/login');
                 }}
-                className="text-sm text-red-600 hover:text-red-800 font-semibold"
+                className="text-sm text-red-600 hover:text-red-800 font-semibold border border-red-200 px-3 py-1 rounded hover:bg-red-50"
               >
                 Sair
               </button>
@@ -156,7 +166,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* MENU MOBILE (Visível apenas em celular) */}
+        {/* MENU MOBILE */}
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
           <div className="grid grid-cols-5 divide-x divide-gray-200">
             <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium text-indigo-600 hover:bg-gray-100 flex flex-col items-center">
