@@ -13,7 +13,7 @@ export default function Dashboard() {
   
   // Filtros
   const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<any[]>([]);
-  const [filtroId, setFiltroId] = useState(''); // Começa vazio, preenche no useEffect
+  const [filtroId, setFiltroId] = useState('');
 
   const [loading, setLoading] = useState(true);
 
@@ -33,15 +33,12 @@ export default function Dashboard() {
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
     
-    // --- MUDANÇA AQUI: VISÃO INICIAL ---
-    // Independente do cargo, começa vendo a PRÓPRIA agenda
+    // Visão Inicial
     setFiltroId(user.id); 
-    // -----------------------------------
 
     fetchDados(user.tenant.id);
   }, []);
 
-  // Efeito que roda sempre que muda o filtro ou os dados chegam
   useEffect(() => {
     filtrarEstatistiscas();
   }, [filtroId, todosAgendamentos]);
@@ -73,7 +70,6 @@ export default function Dashboard() {
   const filtrarEstatistiscas = () => {
     if (!filtroId) return;
 
-    // 1. Aplica o filtro de profissional
     let lista = todosAgendamentos;
     
     if (filtroId !== 'todos') {
@@ -82,7 +78,6 @@ export default function Dashboard() {
 
     setAgendamentosFiltrados(lista);
 
-    // 2. Recalcula Cards (Baseado na lista filtrada)
     const hoje = new Date().toISOString().split('T')[0];
     const agendamentosHoje = lista.filter((a: any) => a.dataHora.startsWith(hoje));
     
@@ -95,8 +90,7 @@ export default function Dashboard() {
       faturamento: totalMes
     });
 
-    // 3. Ranking (Sempre mostra todos para o Dono, ou apenas o próprio se for profissional?)
-    // Vamos manter mostrando todos para competição saudável, mas visualmente destacando
+    // Ranking (Calculado sempre com base em todos para o dono)
     const agrupado: any = {};
     todosAgendamentos.forEach((ag: any) => {
       const nome = ag.profissional.nome;
@@ -147,7 +141,6 @@ export default function Dashboard() {
                     {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
                   </strong>
                   <p className="truncate font-medium">{ag.cliente.nome}</p>
-                  {/* Só mostra o nome do profissional se estiver vendo "Todos" */}
                   {filtroId === 'todos' && (
                       <p className="text-[10px] uppercase tracking-wide mt-1">{ag.profissional.nome}</p>
                   )}
@@ -163,8 +156,9 @@ export default function Dashboard() {
 
   if (!usuario) return <div className="p-10">Carregando...</div>;
 
-  // Verifica se é profissional para travar o filtro
   const isProfissional = usuario.role === 'PROFISSIONAL';
+  // Verifica se é dono ou admin para mostrar o ranking
+  const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -177,7 +171,6 @@ export default function Dashboard() {
                 {usuario.tenant.nome}
               </h1>
               
-              {/* MENU DESKTOP */}
               <div className="hidden md:flex space-x-1 ml-4">
                 <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
                 <button onClick={() => router.push('/dashboard/calendario')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Calendário</button>
@@ -198,7 +191,6 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        {/* Menu Mobile */}
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
           <div className="grid grid-cols-5 divide-x divide-gray-200">
             <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium text-indigo-600 hover:bg-gray-100 flex flex-col items-center"><span>📅</span> Agenda</button>
@@ -212,7 +204,6 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
-        {/* --- SELETOR DE VISÃO (FILTRO INTELIGENTE) --- */}
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-gray-800">
                 {filtroId === 'todos' ? 'Visão Geral' : isProfissional ? 'Minha Agenda' : `Agenda de ${profissionais.find(p => p.id === filtroId)?.nome || '...'}`}
@@ -221,12 +212,10 @@ export default function Dashboard() {
             <select 
                 value={filtroId}
                 onChange={(e) => setFiltroId(e.target.value)}
-                disabled={isProfissional} // <--- TRAVA SE FOR PROFISSIONAL
+                disabled={isProfissional}
                 className={`border border-gray-300 rounded-md p-2 text-sm bg-white shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${isProfissional ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
             >
-                {/* Opção "Todos" só aparece se NÃO for profissional */}
                 {!isProfissional && <option value="todos">👀 Ver Todos</option>}
-                
                 {profissionais.map(prof => (
                     <option key={prof.id} value={prof.id}>
                         {prof.id === usuario.id ? '👤 Minha Agenda' : `👤 ${prof.nome}`}
@@ -235,7 +224,7 @@ export default function Dashboard() {
             </select>
         </div>
 
-        {/* Cards Globais */}
+        {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
             <dt className="text-sm font-medium text-gray-500 truncate">
@@ -260,44 +249,46 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Coluna Esquerda: Agenda */}
-            <div className="lg:col-span-2">
+            {/* Coluna da Agenda - Se for Profissional ocupa tudo, se for Dono ocupa 2/3 */}
+            <div className={isDono ? "lg:col-span-2" : "lg:col-span-3"}>
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">
                    Agenda da Semana
                 </h2>
                 {loading ? <p>Carregando...</p> : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className={isDono ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"}>
                         {renderAgendaSemana()}
                     </div>
                 )}
             </div>
 
-            {/* Coluna Direita: Ranking */}
-            <div>
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
-                <div className="bg-white shadow rounded-lg overflow-hidden">
-                    <ul className="divide-y divide-gray-200">
-                        {ranking.map((prof, index) => (
-                            <li key={index} className={`p-4 flex items-center justify-between ${prof.nome === usuario?.nome ? 'bg-indigo-50' : ''}`}>
-                                <div className="flex items-center">
-                                    <span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 mr-3">
-                                        {prof.nome.charAt(0)}
-                                    </span>
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900">
-                                            {prof.nome} {prof.nome === usuario?.nome && '(Você)'}
-                                        </p>
-                                        <p className="text-xs text-gray-500">{prof.qtd} agendamentos</p>
+            {/* Coluna do Ranking - SÓ APARECE PARA O DONO */}
+            {isDono && (
+                <div>
+                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
+                    <div className="bg-white shadow rounded-lg overflow-hidden">
+                        <ul className="divide-y divide-gray-200">
+                            {ranking.map((prof, index) => (
+                                <li key={index} className={`p-4 flex items-center justify-between ${prof.nome === usuario?.nome ? 'bg-indigo-50' : ''}`}>
+                                    <div className="flex items-center">
+                                        <span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 mr-3">
+                                            {prof.nome.charAt(0)}
+                                        </span>
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-900">
+                                                {prof.nome} {prof.nome === usuario?.nome && '(Você)'}
+                                            </p>
+                                            <p className="text-xs text-gray-500">{prof.qtd} agendamentos</p>
+                                        </div>
                                     </div>
-                                </div>
-                                {/* Esconde valor do ranking se for profissional comum? Opcional. Deixei mostrando. */}
-                                <div className="text-sm font-bold text-green-600">R$ {prof.total.toFixed(2)}</div>
-                            </li>
-                        ))}
-                    </ul>
+                                    <div className="text-sm font-bold text-green-600">R$ {prof.total.toFixed(2)}</div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
+
       </main>
     </div>
   );
