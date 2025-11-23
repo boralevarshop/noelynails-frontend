@@ -6,7 +6,15 @@ import { useRouter } from 'next/navigation';
 export default function Dashboard() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<any>(null);
-  const [agendamentos, setAgendamentos] = useState<any[]>([]);
+  
+  // Dados brutos (Todos)
+  const [todosAgendamentos, setTodosAgendamentos] = useState<any[]>([]);
+  const [profissionais, setProfissionais] = useState<any[]>([]);
+  
+  // Dados filtrados (O que aparece na tela)
+  const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<any[]>([]);
+  const [filtroId, setFiltroId] = useState('todos'); // 'todos' ou ID do profissional
+
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState({
@@ -24,55 +32,92 @@ export default function Dashboard() {
     }
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
+    
+    // Define o filtro inicial baseado no cargo
+    if (user.role === 'PROFISSIONAL') {
+        // Se for profissional, já começa vendo só o dele (usamos o ID do usuário logado)
+        setFiltroId(user.id);
+    } else {
+        setFiltroId('todos');
+    }
+
     fetchDados(user.tenant.id);
   }, []);
+
+  // Efeito que roda sempre que muda o filtro ou os dados chegam
+  useEffect(() => {
+    filtrarEstatistiscas();
+  }, [filtroId, todosAgendamentos]);
 
   const fetchDados = async (tenantId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const res = await fetch(`${apiUrl}/appointments/tenant/${tenantId}`);
-      const data = await res.json();
       
-      // Filtra apenas os não cancelados para estatísticas
-      const ativos = data.filter((a: any) => a.status !== 'CANCELADO');
-      setAgendamentos(ativos);
+      // Busca Agendamentos E Profissionais (para o dropdown)
+      const [resAgenda, resProf] = await Promise.all([
+        fetch(`${apiUrl}/appointments/tenant/${tenantId}`),
+        fetch(`${apiUrl}/professionals/tenant/${tenantId}`)
+      ]);
 
-      // 1. Estatísticas Globais
-      const hoje = new Date().toISOString().split('T')[0];
-      const agendamentosHoje = ativos.filter((a: any) => a.dataHora.startsWith(hoje));
+      const dadosAgenda = await resAgenda.json();
+      const dadosProf = await resProf.json();
       
-      const totalMes = ativos.reduce((acc: number, curr: any) => {
-        return acc + Number(curr.servico.preco);
-      }, 0);
-
-      setStats({
-        hoje: agendamentosHoje.length,
-        faturamento: totalMes
-      });
-
-      // 2. Cálculo por Profissional (Ranking)
-      const agrupado: any = {};
-      ativos.forEach((ag: any) => {
-        const nome = ag.profissional.nome;
-        if (!agrupado[nome]) {
-            agrupado[nome] = { qtd: 0, total: 0 };
-        }
-        agrupado[nome].qtd += 1;
-        agrupado[nome].total += Number(ag.servico.preco);
-      });
-
-      const rankingArray = Object.keys(agrupado).map(key => ({
-        nome: key,
-        ...agrupado[key]
-      })).sort((a, b) => b.total - a.total);
-
-      setRanking(rankingArray);
+      // Filtra apenas os ativos (não cancelados)
+      const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
+      
+      setTodosAgendamentos(ativos);
+      setProfissionais(dadosProf);
 
     } catch (error) {
       console.error('Erro ao buscar dados', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const filtrarEstatistiscas = () => {
+    // 1. Aplica o filtro de profissional
+    let lista = todosAgendamentos;
+    
+    if (filtroId !== 'todos') {
+        // O profissionalId no agendamento refere-se ao ID do Usuário do profissional
+        lista = todosAgendamentos.filter(ag => ag.profissional.id === filtroId);
+    }
+
+    setAgendamentosFiltrados(lista);
+
+    // 2. Recalcula Cards (Baseado na lista filtrada)
+    const hoje = new Date().toISOString().split('T')[0];
+    const agendamentosHoje = lista.filter((a: any) => a.dataHora.startsWith(hoje));
+    
+    const totalMes = lista.reduce((acc: number, curr: any) => {
+      return acc + Number(curr.servico.preco);
+    }, 0);
+
+    setStats({
+      hoje: agendamentosHoje.length,
+      faturamento: totalMes
+    });
+
+    // 3. Recalcula Ranking (Baseado na lista TOTAL, para comparar, ou filtrada?)
+    // Geralmente ranking é legal ver de todos para competição, então mantive TODOS.
+    // Se quiser filtrar o ranking também, troque `todosAgendamentos` por `lista` abaixo.
+    const agrupado: any = {};
+    todosAgendamentos.forEach((ag: any) => {
+      const nome = ag.profissional.nome;
+      if (!agrupado[nome]) {
+          agrupado[nome] = { qtd: 0, total: 0 };
+      }
+      agrupado[nome].qtd += 1;
+      agrupado[nome].total += Number(ag.servico.preco);
+    });
+
+    const rankingArray = Object.keys(agrupado).map(key => ({
+      nome: key,
+      ...agrupado[key]
+    })).sort((a, b) => b.total - a.total);
+
+    setRanking(rankingArray);
   };
 
   const renderAgendaSemana = () => {
@@ -86,7 +131,8 @@ export default function Dashboard() {
       const dataString = diaAtual.toLocaleDateString('pt-BR');
       const nomeDia = diaAtual.toLocaleDateString('pt-BR', { weekday: 'long' });
       
-      const agendamentosDoDia = agendamentos.filter((a: any) => {
+      // Usa a lista FILTRADA aqui
+      const agendamentosDoDia = agendamentosFiltrados.filter((a: any) => {
         const dataAgendamento = new Date(a.dataHora).toLocaleDateString('pt-BR');
         return dataAgendamento === dataString;
       });
@@ -102,12 +148,15 @@ export default function Dashboard() {
           ) : (
             <ul className="space-y-2">
               {agendamentosDoDia.map((ag: any) => (
-                <li key={ag.id} className="text-sm bg-indigo-50 p-2 rounded border-l-2 border-indigo-500">
-                  <strong className="text-indigo-700">
+                <li key={ag.id} className={`text-sm p-2 rounded border-l-2 ${ag.status === 'CONCLUIDO' ? 'bg-gray-100 border-gray-400 text-gray-500' : 'bg-indigo-50 border-indigo-500 text-indigo-700'}`}>
+                  <strong className="block">
                     {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
                   </strong>
-                  <p className="truncate text-gray-600">{ag.cliente.nome}</p>
-                  <p className="text-xs text-gray-400 truncate">{ag.profissional.nome}</p>
+                  <p className="truncate font-medium">{ag.cliente.nome}</p>
+                  {/* Só mostra o nome do profissional se estiver vendo "Todos" */}
+                  {filtroId === 'todos' && (
+                      <p className="text-[10px] uppercase tracking-wide mt-1">{ag.profissional.nome}</p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -131,7 +180,6 @@ export default function Dashboard() {
                 {usuario.tenant.nome}
               </h1>
               
-              {/* MENU DESKTOP */}
               <div className="hidden md:flex space-x-1 ml-4">
                 <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
                 <button onClick={() => router.push('/dashboard/calendario')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Calendário</button>
@@ -141,64 +189,60 @@ export default function Dashboard() {
               </div>
             </div>
             
-            {/* PERFIL E SAIR */}
             <div className="flex items-center gap-3">
-              <button 
-                onClick={() => router.push('/dashboard/perfil')}
-                className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors group"
-              >
+              <button onClick={() => router.push('/dashboard/perfil')} className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors group">
                 <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 group-hover:bg-indigo-200">
                     {usuario.nome.charAt(0).toUpperCase()}
                 </div>
                 <span className="text-sm font-medium hidden md:block">Olá, {usuario.nome.split(' ')[0]}</span>
               </button>
-
-              <button 
-                onClick={() => {
-                  localStorage.removeItem('usuario_saas');
-                  router.push('/login');
-                }}
-                className="text-sm text-red-600 hover:text-red-800 font-semibold border border-red-200 px-3 py-1 rounded hover:bg-red-50"
-              >
-                Sair
-              </button>
+              <button onClick={() => { localStorage.removeItem('usuario_saas'); router.push('/login'); }} className="text-sm text-red-600 hover:text-red-800 font-semibold border border-red-200 px-3 py-1 rounded hover:bg-red-50">Sair</button>
             </div>
           </div>
         </div>
-
-        {/* MENU MOBILE */}
+        {/* Menu Mobile */}
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
           <div className="grid grid-cols-5 divide-x divide-gray-200">
-            <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium text-indigo-600 hover:bg-gray-100 flex flex-col items-center">
-              <span>📅</span> Agenda
-            </button>
-            <button onClick={() => router.push('/dashboard/calendario')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center">
-              <span>🗓️</span> Mês
-            </button>
-            <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center">
-              <span>💅</span> Serv
-            </button>
-            <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center">
-              <span>👥</span> Eqp
-            </button>
-            <button onClick={() => router.push('/dashboard/clientes')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center">
-              <span>👩</span> Cli
-            </button>
+            <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium text-indigo-600 hover:bg-gray-100 flex flex-col items-center"><span>📅</span> Agenda</button>
+            <button onClick={() => router.push('/dashboard/calendario')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>🗓️</span> Mês</button>
+            <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>💅</span> Serv</button>
+            <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>👥</span> Eqp</button>
+            <button onClick={() => router.push('/dashboard/clientes')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>👩</span> Cli</button>
           </div>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
-        {/* Cards Globais */}
+        {/* --- SELETOR DE VISÃO (FILTRO) --- */}
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-bold text-gray-800">Visão Geral</h2>
+            
+            <select 
+                value={filtroId}
+                onChange={(e) => setFiltroId(e.target.value)}
+                className="border border-gray-300 rounded-md p-2 text-sm bg-white shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            >
+                <option value="todos">👀 Ver Todos</option>
+                {profissionais.map(prof => (
+                    <option key={prof.id} value={prof.id}>👤 {prof.nome}</option>
+                ))}
+            </select>
+        </div>
+
+        {/* Cards Globais (Responsivos ao Filtro) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
-            <dt className="text-sm font-medium text-gray-500 truncate">Agendamentos Hoje</dt>
+            <dt className="text-sm font-medium text-gray-500 truncate">
+                {filtroId === 'todos' ? 'Agendamentos Totais Hoje' : 'Meus Agendamentos Hoje'}
+            </dt>
             <dd className="mt-1 text-3xl font-semibold text-gray-900">{stats.hoje}</dd>
           </div>
           
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
-            <dt className="text-sm font-medium text-gray-500 truncate">Faturamento Estimado</dt>
+            <dt className="text-sm font-medium text-gray-500 truncate">
+                {filtroId === 'todos' ? 'Faturamento Global (Mês)' : 'Minha Comissão Base (Mês)'}
+            </dt>
             <dd className="mt-1 text-3xl font-semibold text-green-600">
               R$ {stats.faturamento.toFixed(2)}
             </dd>
@@ -211,9 +255,11 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Coluna Esquerda: Agenda da Semana */}
+            {/* Agenda da Semana (Filtrada) */}
             <div className="lg:col-span-2">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Visão da Semana</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                    {filtroId === 'todos' ? 'Agenda da Equipe' : 'Minha Agenda'}
+                </h2>
                 {loading ? <p>Carregando...</p> : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {renderAgendaSemana()}
@@ -221,36 +267,31 @@ export default function Dashboard() {
                 )}
             </div>
 
-            {/* Coluna Direita: Ranking da Equipe */}
+            {/* Ranking (Sempre mostra todos para competição saudável) */}
             <div>
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Ranking da Equipe</h2>
                 <div className="bg-white shadow rounded-lg overflow-hidden">
                     <ul className="divide-y divide-gray-200">
                         {ranking.map((prof, index) => (
-                            <li key={index} className="p-4 flex items-center justify-between">
+                            <li key={index} className={`p-4 flex items-center justify-between ${prof.nome === usuario?.nome ? 'bg-indigo-50' : ''}`}>
                                 <div className="flex items-center">
                                     <span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 mr-3">
                                         {prof.nome.charAt(0)}
                                     </span>
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900">{prof.nome}</p>
+                                        <p className="text-sm font-medium text-gray-900">
+                                            {prof.nome} {prof.nome === usuario?.nome && '(Você)'}
+                                        </p>
                                         <p className="text-xs text-gray-500">{prof.qtd} agendamentos</p>
                                     </div>
                                 </div>
-                                <div className="text-sm font-bold text-green-600">
-                                    R$ {prof.total.toFixed(2)}
-                                </div>
+                                <div className="text-sm font-bold text-green-600">R$ {prof.total.toFixed(2)}</div>
                             </li>
                         ))}
-                        {ranking.length === 0 && (
-                            <p className="p-4 text-sm text-gray-500 text-center">Sem dados ainda.</p>
-                        )}
                     </ul>
                 </div>
             </div>
-
         </div>
-
       </main>
     </div>
   );
