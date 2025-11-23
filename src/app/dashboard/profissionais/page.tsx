@@ -17,7 +17,6 @@ export default function ProfissionaisPage() {
   });
 
   useEffect(() => {
-    // 1. Verifica login
     const dadosSalvos = localStorage.getItem('usuario_saas');
     if (!dadosSalvos) {
       router.push('/login');
@@ -26,7 +25,6 @@ export default function ProfissionaisPage() {
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
 
-    // 2. Busca os profissionais do backend
     fetchProfessionals(user.tenant.id);
   }, []);
 
@@ -60,8 +58,8 @@ export default function ProfissionaisPage() {
 
       if (res.ok) {
         alert('Profissional cadastrado com sucesso!');
-        setNovoProfissional({ nome: '', email: '', telefone: '' }); // Limpa form
-        fetchProfessionals(usuario.tenant.id); // Recarrega lista
+        setNovoProfissional({ nome: '', email: '', telefone: '' });
+        fetchProfessionals(usuario.tenant.id);
       } else {
         const errorData = await res.json();
         alert(errorData.message || 'Erro ao cadastrar');
@@ -77,18 +75,21 @@ export default function ProfissionaisPage() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       await fetch(`${apiUrl}/professionals/${id}`, { method: 'DELETE' });
-      // Remove da lista visualmente
       setProfissionais(profissionais.filter(p => p.id !== id));
     } catch (error) {
       alert('Erro ao excluir');
     }
   };
 
+  if (!usuario) return <div className="p-10">Carregando...</div>;
+
+  // Verifica permissão
+  const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
         
-        {/* Cabeçalho */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Minha Equipe</h1>
           <button onClick={() => router.push('/dashboard')} className="text-gray-600 hover:text-gray-900">
@@ -98,51 +99,53 @@ export default function ProfissionaisPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           
-          {/* Formulário de Cadastro */}
-          <div className="bg-white p-6 rounded-lg shadow h-fit">
-            <h2 className="text-lg font-semibold mb-4">Novo Profissional</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Nome</label>
-                <input
-                  type="text"
-                  required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                  placeholder="Ex: Ana Clara"
-                  value={novoProfissional.nome}
-                  onChange={e => setNovoProfissional({...novoProfissional, nome: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <input
-                  type="email"
-                  required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                  placeholder="ana@equipe.com"
-                  value={novoProfissional.email}
-                  onChange={e => setNovoProfissional({...novoProfissional, email: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">WhatsApp</label>
-                <input
-                  type="text"
-                  required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                  placeholder="11999999999"
-                  value={novoProfissional.telefone}
-                  onChange={e => setNovoProfissional({...novoProfissional, telefone: e.target.value})}
-                />
-              </div>
-              <button type="submit" className="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700">
-                Cadastrar Profissional
-              </button>
-            </form>
-          </div>
+          {/* Formulário de Cadastro (SÓ APARECE PARA O DONO) */}
+          {isDono && (
+            <div className="bg-white p-6 rounded-lg shadow h-fit">
+              <h2 className="text-lg font-semibold mb-4">Novo Profissional</h2>
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nome</label>
+                  <input
+                    type="text"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                    placeholder="Ex: Ana Clara"
+                    value={novoProfissional.nome}
+                    onChange={e => setNovoProfissional({...novoProfissional, nome: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                    placeholder="ana@equipe.com"
+                    value={novoProfissional.email}
+                    onChange={e => setNovoProfissional({...novoProfissional, email: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">WhatsApp</label>
+                  <input
+                    type="text"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                    placeholder="11999999999"
+                    value={novoProfissional.telefone}
+                    onChange={e => setNovoProfissional({...novoProfissional, telefone: e.target.value})}
+                  />
+                </div>
+                <button type="submit" className="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700">
+                  Cadastrar Profissional
+                </button>
+              </form>
+            </div>
+          )}
 
-          {/* Lista de Profissionais */}
-          <div className="md:col-span-2">
+          {/* Lista de Profissionais (Se não for dono, ocupa a tela toda) */}
+          <div className={isDono ? "md:col-span-2" : "md:col-span-3"}>
             <h2 className="text-lg font-semibold mb-4">Equipe Atual</h2>
             {loading ? (
               <p>Carregando...</p>
@@ -162,12 +165,16 @@ export default function ProfissionaisPage() {
                         <p className="text-xs text-gray-500">{prof.telefone}</p>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => handleDelete(prof.id)}
-                      className="text-red-500 hover:text-red-700 text-sm"
-                    >
-                      Remover
-                    </button>
+                    
+                    {/* Botão de Remover (SÓ APARECE PARA O DONO) */}
+                    {isDono && (
+                        <button 
+                          onClick={() => handleDelete(prof.id)}
+                          className="text-red-500 hover:text-red-700 text-sm"
+                        >
+                          Remover
+                        </button>
+                    )}
                   </li>
                 ))}
               </ul>
