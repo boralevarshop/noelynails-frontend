@@ -33,7 +33,7 @@ export default function Dashboard() {
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
     
-    // Visão Inicial: Começa vendo a própria agenda
+    // Visão Inicial
     setFiltroId(user.id); 
 
     fetchDados(user.tenant.id);
@@ -166,7 +166,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-4">
-              <h1 className="text-xl font-bold text-indigo-600 truncate max-w-[120px] md:max-w-none">
+              <h1 className="text-xl font-bold text-indigo-600 truncate max-w-[100px] md:max-w-none">
                 {usuario.tenant.nome}
               </h1>
               
@@ -177,6 +177,7 @@ export default function Dashboard() {
                 <button onClick={() => router.push('/dashboard/servicos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Serviços</button>
                 <button onClick={() => router.push('/dashboard/profissionais')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Equipe</button>
                 <button onClick={() => router.push('/dashboard/clientes')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Clientes</button>
+                <button onClick={() => router.push('/dashboard/bloqueios')} className="text-red-600 hover:bg-red-50 px-3 py-2 rounded-md text-sm font-medium">Bloqueios</button>
               </div>
             </div>
             
@@ -202,14 +203,16 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        {/* Menu Mobile */}
+
+        {/* MENU MOBILE (Agora com 6 colunas para caber o Bloqueios) */}
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
-          <div className="grid grid-cols-5 divide-x divide-gray-200">
+          <div className="grid grid-cols-6 divide-x divide-gray-200">
             <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium text-indigo-600 hover:bg-gray-100 flex flex-col items-center"><span>📅</span> Agenda</button>
             <button onClick={() => router.push('/dashboard/calendario')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>🗓️</span> Mês</button>
             <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>💅</span> Serv</button>
             <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>👥</span> Eqp</button>
             <button onClick={() => router.push('/dashboard/clientes')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>👩</span> Cli</button>
+            <button onClick={() => router.push('/dashboard/bloqueios')} className="py-3 text-[10px] font-medium text-red-600 hover:bg-red-50 flex flex-col items-center"><span>⛔</span> Bloq</button>
           </div>
         </div>
       </nav>
@@ -268,7 +271,7 @@ export default function Dashboard() {
                    Agenda da Semana
                 </h2>
                 {loading ? <p>Carregando...</p> : (
-                    <div className={isDono ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {renderAgendaSemana()}
                     </div>
                 )}
