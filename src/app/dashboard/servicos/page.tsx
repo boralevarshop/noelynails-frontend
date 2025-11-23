@@ -9,7 +9,7 @@ export default function ServicosPage() {
   const [loading, setLoading] = useState(true);
   const [usuario, setUsuario] = useState<any>(null);
 
-  // Form com campo novo: diasRetorno
+  // Form com o campo novo
   const [novoServico, setNovoServico] = useState({
     nome: '',
     preco: '',
@@ -29,8 +29,23 @@ export default function ServicosPage() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const res = await fetch(`${apiUrl}/services/tenant/${tenantId}`);
-      setServices(await res.json());
-    } catch (error) { console.error(error); } 
+      
+      if (res.ok) {
+        const data = await res.json();
+        // PROTEÇÃO: Garante que é uma lista antes de salvar
+        if (Array.isArray(data)) {
+            setServices(data);
+        } else {
+            setServices([]);
+        }
+      } else {
+        console.error("Erro ao buscar serviços:", res.status);
+        setServices([]);
+      }
+    } catch (error) { 
+        console.error(error);
+        setServices([]); 
+    } 
     finally { setLoading(false); }
   };
 
@@ -45,7 +60,6 @@ export default function ServicosPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...novoServico,
-          // Garante números
           preco: parseFloat(novoServico.preco),
           duracaoMin: parseInt(novoServico.duracaoMin),
           diasRetorno: parseInt(novoServico.diasRetorno),
@@ -57,8 +71,10 @@ export default function ServicosPage() {
         alert('Serviço criado!');
         setNovoServico({ nome: '', preco: '', duracaoMin: '30', diasRetorno: '30' });
         fetchServices(usuario.tenant.id);
+      } else {
+        alert('Erro ao salvar. Verifique os dados.');
       }
-    } catch (error) { alert('Erro ao criar'); }
+    } catch (error) { alert('Erro de conexão'); }
   };
 
   const handleDelete = async (id: string) => {
@@ -109,7 +125,7 @@ export default function ServicosPage() {
 
           <div className="md:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Lista de Serviços</h2>
-            {loading ? <p>Carregando...</p> : services.length === 0 ? <p className="text-gray-500">Nenhum serviço.</p> : (
+            {loading ? <p>Carregando...</p> : services.length === 0 ? <p className="text-gray-500">Nenhum serviço cadastrado.</p> : (
               <ul className="space-y-3">
                 {services.map((service) => (
                   <li key={service.id} className="bg-white p-4 rounded-lg shadow flex justify-between items-center">
@@ -119,7 +135,7 @@ export default function ServicosPage() {
                         {service.duracaoMin} min • R$ {Number(service.preco).toFixed(2)}
                       </p>
                       <p className="text-xs text-indigo-600 font-medium mt-1">
-                        🔄 Retorno sugerido: {service.diasRetorno} dias
+                        🔄 Retorno sugerido: {service.diasRetorno || 30} dias
                       </p>
                     </div>
                     <button onClick={() => handleDelete(service.id)} className="text-red-500 hover:text-red-700 text-sm">Excluir</button>
