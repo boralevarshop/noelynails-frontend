@@ -33,7 +33,7 @@ export default function Dashboard() {
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
     
-    // Visão Inicial
+    // Visão Inicial: Começa vendo a própria agenda
     setFiltroId(user.id); 
 
     fetchDados(user.tenant.id);
@@ -90,7 +90,7 @@ export default function Dashboard() {
       faturamento: totalMes
     });
 
-    // Ranking (Calculado sempre com base em todos para o dono)
+    // Ranking (Sempre calculado com base em todos para o dono)
     const agrupado: any = {};
     todosAgendamentos.forEach((ag: any) => {
       const nome = ag.profissional.nome;
@@ -157,7 +157,6 @@ export default function Dashboard() {
   if (!usuario) return <div className="p-10">Carregando...</div>;
 
   const isProfissional = usuario.role === 'PROFISSIONAL';
-  // Verifica se é dono ou admin para mostrar o ranking
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
 
   return (
@@ -171,6 +170,7 @@ export default function Dashboard() {
                 {usuario.tenant.nome}
               </h1>
               
+              {/* MENU DESKTOP */}
               <div className="hidden md:flex space-x-1 ml-4">
                 <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
                 <button onClick={() => router.push('/dashboard/calendario')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Calendário</button>
@@ -181,6 +181,17 @@ export default function Dashboard() {
             </div>
             
             <div className="flex items-center gap-3">
+              
+              {/* BOTÃO DE VOLTAR PRO ADMIN (Só aparece se for Admin Global) */}
+              {usuario.role === 'ADMIN_GLOBAL' && (
+                <button 
+                  onClick={() => router.push('/admin')}
+                  className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black transition-colors shadow-sm"
+                >
+                  👑 VOLTAR AO ADMIN
+                </button>
+              )}
+
               <button onClick={() => router.push('/dashboard/perfil')} className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors group">
                 <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 group-hover:bg-indigo-200">
                     {usuario.nome.charAt(0).toUpperCase()}
@@ -191,6 +202,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        {/* Menu Mobile */}
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
           <div className="grid grid-cols-5 divide-x divide-gray-200">
             <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium text-indigo-600 hover:bg-gray-100 flex flex-col items-center"><span>📅</span> Agenda</button>
@@ -204,6 +216,7 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
+        {/* --- SELETOR DE VISÃO (FILTRO INTELIGENTE) --- */}
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-gray-800">
                 {filtroId === 'todos' ? 'Visão Geral' : isProfissional ? 'Minha Agenda' : `Agenda de ${profissionais.find(p => p.id === filtroId)?.nome || '...'}`}
@@ -224,7 +237,7 @@ export default function Dashboard() {
             </select>
         </div>
 
-        {/* Cards */}
+        {/* Cards Globais */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
             <dt className="text-sm font-medium text-gray-500 truncate">
@@ -249,7 +262,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Coluna da Agenda - Se for Profissional ocupa tudo, se for Dono ocupa 2/3 */}
+            {/* Coluna Esquerda: Agenda da Semana */}
             <div className={isDono ? "lg:col-span-2" : "lg:col-span-3"}>
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">
                    Agenda da Semana
@@ -261,7 +274,7 @@ export default function Dashboard() {
                 )}
             </div>
 
-            {/* Coluna do Ranking - SÓ APARECE PARA O DONO */}
+            {/* Coluna Direita: Ranking (SÓ APARECE PARA O DONO) */}
             {isDono && (
                 <div>
                     <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>

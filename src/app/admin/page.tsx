@@ -20,8 +20,6 @@ export default function AdminPage() {
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
 
-    // SEGURANÇA NO FRONTEND:
-    // Se não for ADMIN_GLOBAL, chuta de volta pro dashboard comum
     if (user.role !== 'ADMIN_GLOBAL') {
         alert('Acesso negado. Área restrita.');
         router.push('/dashboard');
@@ -52,11 +50,31 @@ export default function AdminPage() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       await fetch(`${apiUrl}/tenants/${id}/toggle`, { method: 'PATCH' });
-      fetchTenants(); // Recarrega a lista
+      fetchTenants();
     } catch (error) {
       alert('Erro ao alterar status');
     }
   };
+
+  // --- FUNÇÃO MÁGICA DE ACESSO ---
+  const acessarSalao = (tenant: any) => {
+    if (!confirm(`Deseja entrar no painel do salão "${tenant.nome}"?`)) return;
+
+    // Cria um "usuário híbrido": Seus dados de Admin + O ID do Salão Alvo
+    const sessaoHibrida = {
+        ...usuario, // Mantém seu nome, email e role de ADMIN_GLOBAL
+        tenant: {   // Troca o salão para o que você clicou
+            id: tenant.id,
+            nome: tenant.nome,
+            slug: tenant.slug
+        }
+    };
+
+    // Salva no navegador e redireciona
+    localStorage.setItem('usuario_saas', JSON.stringify(sessaoHibrida));
+    router.push('/dashboard');
+  };
+  // -------------------------------
 
   if (loading) return <div className="p-10 text-center">Carregando Painel Admin...</div>;
 
@@ -71,7 +89,7 @@ export default function AdminPage() {
           </div>
           <div className="flex gap-4">
             <button onClick={() => router.push('/dashboard')} className="text-gray-400 hover:text-white">
-              Ver meu Salão
+              Ver meu Dashboard
             </button>
             <button onClick={() => { localStorage.removeItem('usuario_saas'); router.push('/login'); }} className="bg-red-600 px-4 py-2 rounded hover:bg-red-700 font-bold">
               Sair
@@ -92,7 +110,7 @@ export default function AdminPage() {
                 </p>
             </div>
             <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                <h3 className="text-gray-400 text-sm uppercase">Bloqueados (Inadimplentes)</h3>
+                <h3 className="text-gray-400 text-sm uppercase">Bloqueados</h3>
                 <p className="text-4xl font-bold text-red-400 mt-2">
                     {tenants.filter(t => !t.ativo).length}
                 </p>
@@ -104,11 +122,9 @@ export default function AdminPage() {
             <table className="w-full text-left">
                 <thead className="bg-gray-700 text-gray-300 text-xs uppercase">
                     <tr>
-                        <th className="p-4">Nome do Salão</th>
-                        <th className="p-4">Link (Slug)</th>
+                        <th className="p-4">Salão</th>
                         <th className="p-4">Plano</th>
-                        <th className="p-4 text-center">Usuários</th>
-                        <th className="p-4 text-center">Agendamentos</th>
+                        <th className="p-4 text-center">Dados</th>
                         <th className="p-4">Status</th>
                         <th className="p-4 text-right">Ações</th>
                     </tr>
@@ -116,22 +132,34 @@ export default function AdminPage() {
                 <tbody className="divide-y divide-gray-700">
                     {tenants.map(t => (
                         <tr key={t.id} className="hover:bg-gray-750 transition-colors">
-                            <td className="p-4 font-medium">{t.nome}</td>
-                            <td className="p-4 text-gray-400">/{t.slug}</td>
+                            <td className="p-4">
+                                <div className="font-bold text-white">{t.nome}</div>
+                                <div className="text-xs text-gray-500">/{t.slug}</div>
+                            </td>
                             <td className="p-4"><span className="bg-blue-900 text-blue-200 text-xs px-2 py-1 rounded">{t.plano}</span></td>
-                            <td className="p-4 text-center">{t._count?.usuarios || 0}</td>
-                            <td className="p-4 text-center">{t._count?.agendamentos || 0}</td>
+                            <td className="p-4 text-center text-sm text-gray-400">
+                                {t._count?.usuarios || 0} usuários<br/>
+                                {t._count?.agendamentos || 0} agendamentos
+                            </td>
                             <td className="p-4">
                                 {t.ativo ? (
-                                    <span className="text-green-400 text-xs font-bold border border-green-400 px-2 py-1 rounded">ATIVO</span>
+                                    <span className="text-green-400 text-xs font-bold">ATIVO</span>
                                 ) : (
-                                    <span className="text-red-400 text-xs font-bold border border-red-400 px-2 py-1 rounded">BLOQUEADO</span>
+                                    <span className="text-red-400 text-xs font-bold">BLOQUEADO</span>
                                 )}
                             </td>
-                            <td className="p-4 text-right">
+                            <td className="p-4 text-right flex justify-end gap-2">
+                                {/* BOTÃO DE ACESSAR */}
+                                <button 
+                                    onClick={() => acessarSalao(t)}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded font-bold"
+                                >
+                                    ACESSAR ↗
+                                </button>
+
                                 <button 
                                     onClick={() => handleToggleStatus(t.id, t.ativo)}
-                                    className={`text-xs font-bold px-3 py-1 rounded transition-colors ${t.ativo ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                                    className={`text-xs font-bold px-3 py-1 rounded ${t.ativo ? 'bg-gray-700 hover:bg-red-900 text-gray-300' : 'bg-green-800 text-green-100'}`}
                                 >
                                     {t.ativo ? 'BLOQUEAR' : 'LIBERAR'}
                                 </button>
