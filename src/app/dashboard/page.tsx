@@ -7,13 +7,13 @@ export default function Dashboard() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<any>(null);
   
-  // Dados brutos (Todos)
+  // Dados
   const [todosAgendamentos, setTodosAgendamentos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
   
-  // Dados filtrados (O que aparece na tela)
+  // Filtros
   const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<any[]>([]);
-  const [filtroId, setFiltroId] = useState('todos'); // 'todos' ou ID do profissional
+  const [filtroId, setFiltroId] = useState(''); // Começa vazio, preenche no useEffect
 
   const [loading, setLoading] = useState(true);
 
@@ -33,13 +33,10 @@ export default function Dashboard() {
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
     
-    // Define o filtro inicial baseado no cargo
-    if (user.role === 'PROFISSIONAL') {
-        // Se for profissional, já começa vendo só o dele (usamos o ID do usuário logado)
-        setFiltroId(user.id);
-    } else {
-        setFiltroId('todos');
-    }
+    // --- MUDANÇA AQUI: VISÃO INICIAL ---
+    // Independente do cargo, começa vendo a PRÓPRIA agenda
+    setFiltroId(user.id); 
+    // -----------------------------------
 
     fetchDados(user.tenant.id);
   }, []);
@@ -53,7 +50,6 @@ export default function Dashboard() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       
-      // Busca Agendamentos E Profissionais (para o dropdown)
       const [resAgenda, resProf] = await Promise.all([
         fetch(`${apiUrl}/appointments/tenant/${tenantId}`),
         fetch(`${apiUrl}/professionals/tenant/${tenantId}`)
@@ -62,7 +58,6 @@ export default function Dashboard() {
       const dadosAgenda = await resAgenda.json();
       const dadosProf = await resProf.json();
       
-      // Filtra apenas os ativos (não cancelados)
       const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
       
       setTodosAgendamentos(ativos);
@@ -76,11 +71,12 @@ export default function Dashboard() {
   };
 
   const filtrarEstatistiscas = () => {
+    if (!filtroId) return;
+
     // 1. Aplica o filtro de profissional
     let lista = todosAgendamentos;
     
     if (filtroId !== 'todos') {
-        // O profissionalId no agendamento refere-se ao ID do Usuário do profissional
         lista = todosAgendamentos.filter(ag => ag.profissional.id === filtroId);
     }
 
@@ -99,9 +95,8 @@ export default function Dashboard() {
       faturamento: totalMes
     });
 
-    // 3. Recalcula Ranking (Baseado na lista TOTAL, para comparar, ou filtrada?)
-    // Geralmente ranking é legal ver de todos para competição, então mantive TODOS.
-    // Se quiser filtrar o ranking também, troque `todosAgendamentos` por `lista` abaixo.
+    // 3. Ranking (Sempre mostra todos para o Dono, ou apenas o próprio se for profissional?)
+    // Vamos manter mostrando todos para competição saudável, mas visualmente destacando
     const agrupado: any = {};
     todosAgendamentos.forEach((ag: any) => {
       const nome = ag.profissional.nome;
@@ -131,7 +126,6 @@ export default function Dashboard() {
       const dataString = diaAtual.toLocaleDateString('pt-BR');
       const nomeDia = diaAtual.toLocaleDateString('pt-BR', { weekday: 'long' });
       
-      // Usa a lista FILTRADA aqui
       const agendamentosDoDia = agendamentosFiltrados.filter((a: any) => {
         const dataAgendamento = new Date(a.dataHora).toLocaleDateString('pt-BR');
         return dataAgendamento === dataString;
@@ -169,6 +163,9 @@ export default function Dashboard() {
 
   if (!usuario) return <div className="p-10">Carregando...</div>;
 
+  // Verifica se é profissional para travar o filtro
+  const isProfissional = usuario.role === 'PROFISSIONAL';
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Barra Superior */}
@@ -180,6 +177,7 @@ export default function Dashboard() {
                 {usuario.tenant.nome}
               </h1>
               
+              {/* MENU DESKTOP */}
               <div className="hidden md:flex space-x-1 ml-4">
                 <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
                 <button onClick={() => router.push('/dashboard/calendario')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Calendário</button>
@@ -214,23 +212,30 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
-        {/* --- SELETOR DE VISÃO (FILTRO) --- */}
+        {/* --- SELETOR DE VISÃO (FILTRO INTELIGENTE) --- */}
         <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-gray-800">Visão Geral</h2>
+            <h2 className="text-lg font-bold text-gray-800">
+                {filtroId === 'todos' ? 'Visão Geral' : isProfissional ? 'Minha Agenda' : `Agenda de ${profissionais.find(p => p.id === filtroId)?.nome || '...'}`}
+            </h2>
             
             <select 
                 value={filtroId}
                 onChange={(e) => setFiltroId(e.target.value)}
-                className="border border-gray-300 rounded-md p-2 text-sm bg-white shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                disabled={isProfissional} // <--- TRAVA SE FOR PROFISSIONAL
+                className={`border border-gray-300 rounded-md p-2 text-sm bg-white shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${isProfissional ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
             >
-                <option value="todos">👀 Ver Todos</option>
+                {/* Opção "Todos" só aparece se NÃO for profissional */}
+                {!isProfissional && <option value="todos">👀 Ver Todos</option>}
+                
                 {profissionais.map(prof => (
-                    <option key={prof.id} value={prof.id}>👤 {prof.nome}</option>
+                    <option key={prof.id} value={prof.id}>
+                        {prof.id === usuario.id ? '👤 Minha Agenda' : `👤 ${prof.nome}`}
+                    </option>
                 ))}
             </select>
         </div>
 
-        {/* Cards Globais (Responsivos ao Filtro) */}
+        {/* Cards Globais */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
             <dt className="text-sm font-medium text-gray-500 truncate">
@@ -255,10 +260,10 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Agenda da Semana (Filtrada) */}
+            {/* Coluna Esquerda: Agenda */}
             <div className="lg:col-span-2">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                    {filtroId === 'todos' ? 'Agenda da Equipe' : 'Minha Agenda'}
+                   Agenda da Semana
                 </h2>
                 {loading ? <p>Carregando...</p> : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -267,9 +272,9 @@ export default function Dashboard() {
                 )}
             </div>
 
-            {/* Ranking (Sempre mostra todos para competição saudável) */}
+            {/* Coluna Direita: Ranking */}
             <div>
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Ranking da Equipe</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
                 <div className="bg-white shadow rounded-lg overflow-hidden">
                     <ul className="divide-y divide-gray-200">
                         {ranking.map((prof, index) => (
@@ -285,6 +290,7 @@ export default function Dashboard() {
                                         <p className="text-xs text-gray-500">{prof.qtd} agendamentos</p>
                                     </div>
                                 </div>
+                                {/* Esconde valor do ranking se for profissional comum? Opcional. Deixei mostrando. */}
                                 <div className="text-sm font-bold text-green-600">R$ {prof.total.toFixed(2)}</div>
                             </li>
                         ))}
