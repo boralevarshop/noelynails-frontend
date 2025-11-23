@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 export default function BloqueiosPage() {
   const router = useRouter();
   const [bloqueios, setBloqueios] = useState<any[]>([]);
-  const [profissionais, setProfissionais] = useState<any[]>([]); // Para o dono escolher quem bloquear
+  const [profissionais, setProfissionais] = useState<any[]>([]);
   const [usuario, setUsuario] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,20 +37,35 @@ export default function BloqueiosPage() {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         let urlBloqueios = '';
         
-        // Se for DONO, busca todos os bloqueios e a lista de profissionais
+        // 1. Busca Profissionais (se for dono)
         if (user.role !== 'PROFISSIONAL') {
             urlBloqueios = `${apiUrl}/blocks/tenant/${user.tenant.id}`;
             const resProf = await fetch(`${apiUrl}/professionals/tenant/${user.tenant.id}`);
-            setProfissionais(await resProf.json());
+            if (resProf.ok) {
+                setProfissionais(await resProf.json());
+            }
         } else {
-            // Se for PROFISSIONAL, busca só os dele
             urlBloqueios = `${apiUrl}/blocks/professional/${user.id}`;
         }
 
+        // 2. Busca Bloqueios com Proteção
         const res = await fetch(urlBloqueios);
-        setBloqueios(await res.json());
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setBloqueios(data);
+            } else {
+                setBloqueios([]);
+            }
+        } else {
+            console.error("Erro API Bloqueios:", res.status);
+            setBloqueios([]);
+        }
 
-    } catch (error) { console.error(error); }
+    } catch (error) { 
+        console.error(error);
+        setBloqueios([]);
+    }
     finally { setLoading(false); }
   };
 
@@ -68,7 +83,7 @@ export default function BloqueiosPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 tenantId: usuario.tenant.id,
-                profissionalId: novoBloqueio.profissionalId || usuario.id, // Usa o do form ou o logado
+                profissionalId: novoBloqueio.profissionalId || usuario.id,
                 inicio: inicioISO,
                 fim: fimISO,
                 motivo: novoBloqueio.motivo
@@ -78,7 +93,6 @@ export default function BloqueiosPage() {
         if (res.ok) {
             alert('Horário bloqueado com sucesso!');
             carregarDados(usuario);
-            // Limpa form parcial
             setNovoBloqueio(prev => ({ ...prev, motivo: '', horaInicio: '', horaFim: '' }));
         } else {
             alert('Erro ao bloquear. Verifique as datas.');
@@ -114,7 +128,6 @@ export default function BloqueiosPage() {
                 <h2 className="text-lg font-semibold mb-4 text-red-600">Bloquear Horário</h2>
                 <form onSubmit={handleCreate} className="space-y-4">
                     
-                    {/* Se for Dono, escolhe qual profissional vai bloquear */}
                     {isDono && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Profissional</label>
@@ -128,7 +141,6 @@ export default function BloqueiosPage() {
                                 {profissionais.map(p => (
                                     <option key={p.id} value={p.id}>{p.nome}</option>
                                 ))}
-                                {/* Inclui o próprio dono se ele atende */}
                                 <option value={usuario.id}>Eu mesmo ({usuario.nome})</option>
                             </select>
                         </div>
