@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, isToday, isTomorrow, parseISO } from 'date-fns';
+import { format, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function Dashboard() {
@@ -14,7 +14,7 @@ export default function Dashboard() {
   const [todosAgendamentos, setTodosAgendamentos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
   
-  // Filtros e Visualização
+  // Filtros
   const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<any[]>([]);
   const [filtroId, setFiltroId] = useState('');
   const [mostrarValores, setMostrarValores] = useState(false);
@@ -23,7 +23,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ hoje: 0, faturamento: 0 });
   const [ranking, setRanking] = useState<any[]>([]);
 
-  // Estados para o Modal de Agendamento
+  // Estados para o Modal
   const [modalAberto, setModalAberto] = useState(false);
   const [servicos, setServicos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -56,8 +56,6 @@ export default function Dashboard() {
     }
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
-    
-    // Visão Inicial
     setFiltroId(user.id); 
 
     fetchDados(user.tenant.id);
@@ -68,14 +66,14 @@ export default function Dashboard() {
     filtrarEstatistiscas();
   }, [filtroId, todosAgendamentos]);
 
-  // --- CORREÇÃO: PRÉ-SELEÇÃO ROBUSTA ---
-  // Monitora o usuário, o modal E a lista de profissionais
+  // --- CORREÇÃO: PRÉ-SELEÇÃO IGUAL A PÁGINA DE AGENDAMENTOS ---
   useEffect(() => {
+    // Só roda se o modal estiver aberto e tivermos a lista de profissionais carregada
     if (modalAberto && usuario && usuario.role === 'PROFISSIONAL' && profissionais.length > 0) {
         setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
     }
   }, [modalAberto, usuario, profissionais]);
-  // -------------------------------------
+  // -----------------------------------------------------------
 
   const fetchDados = async (tenantId: string) => {
     try {
@@ -92,9 +90,7 @@ export default function Dashboard() {
       const dadosTenant = await resTenant.json();
 
       setTenant(dadosTenant);
-      
       const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
-      
       setTodosAgendamentos(ativos);
       setProfissionais(dadosProf);
 
@@ -119,47 +115,33 @@ export default function Dashboard() {
 
   const filtrarEstatistiscas = () => {
     if (!filtroId) return;
-
     let lista = todosAgendamentos;
-    
     if (filtroId !== 'todos') {
         lista = todosAgendamentos.filter(ag => ag.profissional.id === filtroId);
     }
-
     setAgendamentosFiltrados(lista);
 
     const hoje = new Date().toISOString().split('T')[0];
     const agendamentosHoje = lista.filter((a: any) => a.dataHora.startsWith(hoje));
-    
-    const totalMes = lista.reduce((acc: number, curr: any) => {
-      return acc + Number(curr.servico.preco);
-    }, 0);
+    const totalMes = lista.reduce((acc: number, curr: any) => acc + Number(curr.servico.preco), 0);
 
-    setStats({
-      hoje: agendamentosHoje.length,
-      faturamento: totalMes
-    });
+    setStats({ hoje: agendamentosHoje.length, faturamento: totalMes });
 
-    // Ranking
     const agrupado: any = {};
     todosAgendamentos.forEach((ag: any) => {
       const nome = ag.profissional.nome;
-      if (!agrupado[nome]) {
-          agrupado[nome] = { qtd: 0, total: 0 };
-      }
+      if (!agrupado[nome]) agrupado[nome] = { qtd: 0, total: 0 };
       agrupado[nome].qtd += 1;
       agrupado[nome].total += Number(ag.servico.preco);
     });
 
     const rankingArray = Object.keys(agrupado).map(key => ({
-      nome: key,
-      ...agrupado[key]
+      nome: key, ...agrupado[key]
     })).sort((a, b) => b.total - a.total);
 
     setRanking(rankingArray);
   };
 
-  // Funções do Modal
   const handleNomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setNovoAgendamento(prev => ({ ...prev, nomeCliente: val }));
@@ -185,15 +167,14 @@ export default function Dashboard() {
 
       if (res.ok) {
         alert('Agendamento realizado! 📅');
-        
-        // Limpa form e mantém ID se for profissional
+        // Mantém ID se for profissional
         setNovoAgendamento({ 
             nomeCliente: '', telefoneCliente: '', serviceId: '', 
             professionalId: usuario.role === 'PROFISSIONAL' ? usuario.id : '' 
         });
         setDataSelecionada(''); setHorarioSelecionado('');
         setModalAberto(false);
-        fetchDados(usuario.tenant.id); // Atualiza os dados da tela
+        fetchDados(usuario.tenant.id);
       } else { 
         const erro = await res.json();
         alert(`Erro: ${erro.message}`);
@@ -239,16 +220,15 @@ export default function Dashboard() {
 
   const isProfissional = usuario.role === 'PROFISSIONAL';
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
-  
   let planoLabel = null;
   if (tenant) {
       if (tenant.statusAssinatura === 'TRIAL') {
           const dias = Math.ceil((new Date(tenant.trialFim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-          planoLabel = <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold border border-green-300 shadow-sm animate-pulse">💎 Teste Grátis: {dias} dias</span>;
+          planoLabel = <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold border border-green-300 shadow-sm animate-pulse">💎 Teste: {dias} dias</span>;
       } else if (tenant.plano === 'FREE') {
-          planoLabel = <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Plano Free</span>;
+          planoLabel = <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Free</span>;
       } else {
-          planoLabel = <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-bold">Plano {tenant.plano}</span>;
+          planoLabel = <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-bold">{tenant.plano}</span>;
       }
   }
   
@@ -269,15 +249,12 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100 pb-20 md:pb-0">
-      {/* Barra Superior */}
       <nav className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-bold text-indigo-600 truncate max-w-[100px] md:max-w-none">{usuario.tenant.nome}</h1>
               <div className="hidden md:block">{planoLabel}</div>
-              
-              {/* MENU DESKTOP */}
               <div className="hidden md:flex space-x-1 ml-4">
                 <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
                 <button onClick={() => router.push('/dashboard/calendario')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Calendário</button>
@@ -287,7 +264,6 @@ export default function Dashboard() {
                 <button onClick={() => router.push('/dashboard/bloqueios')} className="text-red-600 hover:bg-red-50 px-3 py-2 rounded-md text-sm font-medium">Bloqueios</button>
               </div>
             </div>
-            
             <div className="flex items-center gap-3">
               {usuario.role === 'ADMIN_GLOBAL' && <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black shadow-sm">👑 ADMIN</button>}
               <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200">💎</button>
@@ -296,7 +272,6 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        {/* Menu Mobile */}
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
           <div className="grid grid-cols-6 divide-x divide-gray-200">
             <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium text-indigo-600 hover:bg-gray-100 flex flex-col items-center"><span>📅</span> Agenda</button>
@@ -312,20 +287,6 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
-        {/* Link Público (Final da Página) */}
-        {isDono && (
-            <div className="mt-4 mb-6 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white order-last md:order-first">
-                <div className="mb-3 md:mb-0 text-center md:text-left">
-                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
-                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
-                </div>
-                <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
-                    <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
-                    <button onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))} className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0">Copiar</button>
-                </div>
-            </div>
-        )}
-
         {/* Filtro e Botão de Agendamento */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <div className="flex items-center gap-3 w-full md:w-auto">
@@ -343,13 +304,12 @@ export default function Dashboard() {
             </button>
         </div>
 
-        {/* Cards Globais */}
+        {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
             <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Agendamentos Totais Hoje' : 'Meus Agendamentos Hoje'} ({stats.hoje})</dt>
             <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2"><div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${Math.min(stats.hoje * 10, 100)}%` }}></div></div>
           </div>
-          
           <div className="bg-white overflow-hidden shadow rounded-lg p-5 relative">
             <div className="flex justify-between items-start">
                 <dt className="text-sm font-medium text-gray-500 truncate">
@@ -370,7 +330,6 @@ export default function Dashboard() {
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">Agenda da Semana</h2>
                 {loading ? <p>Carregando...</p> : <div className={isDono ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"}>{renderAgendaSemana()}</div>}
             </div>
-            
             {isDono && (
                 <div>
                     <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
@@ -390,7 +349,21 @@ export default function Dashboard() {
             )}
         </div>
 
-        {/* MODAL NOVO AGENDAMENTO */}
+        {/* Link Público (MOVIDO PARA CÁ) */}
+        {isDono && (
+            <div className="mt-10 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white">
+                <div className="mb-3 md:mb-0 text-center md:text-left">
+                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
+                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
+                    <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
+                    <button onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))} className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0">Copiar</button>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
