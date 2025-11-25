@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, isToday, isTomorrow } from 'date-fns';
+import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function Dashboard() {
@@ -23,7 +23,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ hoje: 0, faturamento: 0 });
   const [ranking, setRanking] = useState<any[]>([]);
 
-  // Estados para o Modal
+  // Estados para o Modal de Agendamento
   const [modalAberto, setModalAberto] = useState(false);
   const [servicos, setServicos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -66,11 +66,18 @@ export default function Dashboard() {
     filtrarEstatistiscas();
   }, [filtroId, todosAgendamentos]);
 
+  // Pré-seleção do profissional no modal
   useEffect(() => {
-    if (modalAberto && usuario && usuario.role === 'PROFISSIONAL' && profissionais.length > 0) {
-        setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
+    if (modalAberto && usuario) {
+        if (usuario.role === 'PROFISSIONAL') {
+            setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
+        } else if (filtroId && filtroId !== 'todos') {
+            setNovoAgendamento(prev => ({ ...prev, professionalId: filtroId }));
+        } else {
+            setNovoAgendamento(prev => ({ ...prev, professionalId: '' }));
+        }
     }
-  }, [modalAberto, usuario, profissionais]);
+  }, [modalAberto, usuario, filtroId]);
 
   const fetchDados = async (tenantId: string) => {
     try {
@@ -86,7 +93,7 @@ export default function Dashboard() {
       const dadosProf = await resProf.json();
       const dadosTenant = await resTenant.json();
 
-      setTenant(dadosTenant); // AQUI CARREGA AS CORES
+      setTenant(dadosTenant);
       
       const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
       setTodosAgendamentos(ativos);
@@ -218,9 +225,10 @@ export default function Dashboard() {
   const isProfissional = usuario.role === 'PROFISSIONAL';
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
   
-  // --- DEFINIÇÃO DAS CORES DINÂMICAS ---
-  const corPrincipal = tenant?.corPrimaria || '#4F46E5'; // Roxo padrão
-  // -------------------------------------
+  // --- DEFINIÇÃO DAS CORES (AGORA COM FUNDO) ---
+  const corPrincipal = tenant?.corPrimaria || '#4F46E5'; 
+  const corFundo = tenant?.corSecundaria || '#F3F4F6';
+  // ---------------------------------------------
 
   let planoLabel = null;
   if (tenant) {
@@ -247,8 +255,10 @@ export default function Dashboard() {
     </svg>
   );
 
+  // --- AQUI APLICA A COR DE FUNDO ---
   return (
-    <div className="min-h-screen bg-gray-100 pb-20 md:pb-0">
+    <div className="min-h-screen pb-20 md:pb-0" style={{ backgroundColor: corFundo }}>
+      {/* ... Resto do HTML (NavBar, Main) ... */}
       <nav className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -324,6 +334,7 @@ export default function Dashboard() {
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">Agenda da Semana</h2>
                 {loading ? <p>Carregando...</p> : <div className={isDono ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"}>{renderAgendaSemana()}</div>}
             </div>
+            
             {isDono && (
                 <div>
                     <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
