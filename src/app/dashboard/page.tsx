@@ -10,18 +10,18 @@ export default function Dashboard() {
   const [usuario, setUsuario] = useState<any>(null);
   const [tenant, setTenant] = useState<any>(null);
   
-  // Dados para o Dashboard
+  // Dados
   const [todosAgendamentos, setTodosAgendamentos] = useState<any[]>([]);
+  const [profissionais, setProfissionais] = useState<any[]>([]);
   const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<any[]>([]);
   const [filtroId, setFiltroId] = useState('');
   const [stats, setStats] = useState({ hoje: 0, faturamento: 0 });
   const [ranking, setRanking] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- ESTADOS PARA O MODAL DE AGENDAMENTO ---
+  // --- ESTADOS PARA O MODAL ---
   const [modalAberto, setModalAberto] = useState(false);
   const [servicos, setServicos] = useState<any[]>([]);
-  const [profissionais, setProfissionais] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   
   const [dataSelecionada, setDataSelecionada] = useState('');
@@ -32,7 +32,6 @@ export default function Dashboard() {
     serviceId: '',
     professionalId: ''
   });
-  // ------------------------------------------
 
   const horariosDisponiveis = (() => {
     const h = [];
@@ -52,10 +51,7 @@ export default function Dashboard() {
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
     setFiltroId(user.id); 
-
     fetchDados(user.tenant.id);
-    
-    // Já carrega listas para o modal ficar rápido
     carregarListas(user.tenant.id);
   }, []);
 
@@ -63,12 +59,13 @@ export default function Dashboard() {
     filtrarEstatistiscas();
   }, [filtroId, todosAgendamentos]);
 
-  // Lógica de pré-seleção do profissional no modal
+  // --- CORREÇÃO: PRÉ-SELEÇÃO NO MODAL DO DASHBOARD ---
   useEffect(() => {
     if (usuario && usuario.role === 'PROFISSIONAL' && modalAberto) {
         setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
     }
   }, [usuario, modalAberto]);
+  // ---------------------------------------------------
 
   const fetchDados = async (tenantId: string) => {
     try {
@@ -86,13 +83,12 @@ export default function Dashboard() {
       setTenant(dadosTenant);
       const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
       setTodosAgendamentos(ativos);
-      setProfissionais(dadosProf); // Também usada no filtro do dashboard
+      setProfissionais(dadosProf);
 
     } catch (error) { console.error(error); } 
     finally { setLoading(false); }
   };
 
-  // Busca dados específicos para o Modal (Serviços e Clientes)
   const carregarListas = async (tenantId: string) => {
     try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -134,7 +130,6 @@ export default function Dashboard() {
     setRanking(rankingArray);
   };
 
-  // --- FUNÇÕES DO MODAL ---
   const handleNomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setNovoAgendamento(prev => ({ ...prev, nomeCliente: val }));
@@ -160,20 +155,21 @@ export default function Dashboard() {
 
       if (res.ok) {
         alert('Agendamento realizado! 📅');
+        
+        // Limpa form e mantém ID se for profissional
         setNovoAgendamento({ 
             nomeCliente: '', telefoneCliente: '', serviceId: '', 
             professionalId: usuario.role === 'PROFISSIONAL' ? usuario.id : '' 
         });
         setDataSelecionada(''); setHorarioSelecionado('');
         setModalAberto(false);
-        fetchDados(usuario.tenant.id); // Atualiza o dashboard
+        fetchDados(usuario.tenant.id);
       } else { 
         const erro = await res.json();
         alert(`Erro: ${erro.message}`);
       }
     } catch (error) { alert('Erro de conexão'); }
   };
-  // ------------------------
 
   const renderAgendaSemana = () => {
     const dias = [];
@@ -228,7 +224,7 @@ export default function Dashboard() {
   const linkPublico = usuario.tenant?.slug ? `agendar.devhenri.shop/${usuario.tenant.slug}` : '';
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-20 md:pb-0">
+    <div className="min-h-screen bg-gray-100">
       <nav className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -265,21 +261,7 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
-        {/* Link Público */}
-        {isDono && (
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 mb-6 flex flex-col md:flex-row items-center justify-between text-white">
-                <div className="mb-3 md:mb-0 text-center md:text-left">
-                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
-                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
-                </div>
-                <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
-                    <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
-                    <button onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))} className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0">Copiar</button>
-                </div>
-            </div>
-        )}
-
-        {/* Filtro e Botão de Agendamento (Lado a Lado) */}
+        {/* Filtro + Botão Novo Agendamento */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <div className="flex items-center gap-3 w-full md:w-auto">
                 <h2 className="text-lg font-bold text-gray-800 whitespace-nowrap">
@@ -291,17 +273,13 @@ export default function Dashboard() {
                 </select>
             </div>
 
-            {/* BOTÃO QUE ABRE O MODAL AQUI */}
-            <button 
-                onClick={() => setModalAberto(true)}
-                className="w-full md:w-auto bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-indigo-700 transition-transform active:scale-95 flex items-center justify-center gap-2"
-            >
+            <button onClick={() => setModalAberto(true)} className="w-full md:w-auto bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-indigo-700 transition-transform active:scale-95 flex items-center justify-center gap-2">
                 <span>+</span> Novo Agendamento
             </button>
         </div>
 
         {/* Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
             <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Agendamentos Totais Hoje' : 'Meus Agendamentos Hoje'} ({stats.hoje})</dt>
             <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2"><div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${Math.min(stats.hoje * 10, 100)}%` }}></div></div>
@@ -309,6 +287,9 @@ export default function Dashboard() {
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
             <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Faturamento Global (Mês)' : 'Minha Comissão Base (Mês)'}</dt>
             <dd className="mt-1 text-3xl font-semibold text-green-600">R$ {stats.faturamento.toFixed(2)}</dd>
+          </div>
+          <div className="bg-indigo-600 overflow-hidden shadow rounded-lg p-5 flex items-center justify-center cursor-pointer hover:bg-indigo-700 transition-colors" onClick={() => setModalAberto(true)}>
+            <span className="text-white font-bold text-lg">+ Novo Agendamento</span>
           </div>
         </div>
 
@@ -334,7 +315,21 @@ export default function Dashboard() {
             )}
         </div>
 
-        {/* MODAL DE NOVO AGENDAMENTO (COPIADO DA OUTRA PÁGINA) */}
+        {/* --- LINK PÚBLICO MOVIDO PARA BAIXO --- */}
+        {isDono && (
+            <div className="mt-10 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white">
+                <div className="mb-3 md:mb-0 text-center md:text-left">
+                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
+                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
+                    <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
+                    <button onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))} className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0">Copiar</button>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL DE NOVO AGENDAMENTO */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
