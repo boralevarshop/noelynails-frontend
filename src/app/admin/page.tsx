@@ -9,9 +9,17 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [usuario, setUsuario] = useState<any>(null);
 
-  const [modalTrialAberto, setModalTrialAberto] = useState(false);
-  const [tenantSelecionado, setTenantSelecionado] = useState<any>(null);
-  const [diasTrial, setDiasTrial] = useState(7);
+  // --- ESTADOS DO MODAL DE EDIÇÃO ---
+  const [modalEditAberto, setModalEditAberto] = useState(false);
+  const [editTenant, setEditTenant] = useState<any>({
+    id: '',
+    nome: '',
+    slug: '',
+    plano: '',
+    statusAssinatura: '',
+    whatsappInstance: '',
+    trialFim: ''
+  });
 
   useEffect(() => {
     const dadosSalvos = localStorage.getItem('usuario_saas');
@@ -57,50 +65,59 @@ export default function AdminPage() {
     router.push('/dashboard');
   };
 
-  // --- NOVA FUNÇÃO: EXCLUIR SALÃO ---
   const handleDelete = async (id: string, nome: string) => {
-    const confirmacao = prompt(`ATENÇÃO PERIGO 🚨\n\nIsso apagará o salão "${nome}" e TODOS os dados (clientes, agendamentos, financeiros) para sempre.\n\nPara confirmar, digite "DELETAR" abaixo:`);
-    
+    const confirmacao = prompt(`ATENÇÃO PERIGO 🚨\n\nDigite "DELETAR" para apagar o salão "${nome}" e todos os dados permanentemente:`);
     if (confirmacao !== 'DELETAR') return;
-
     try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         const res = await fetch(`${apiUrl}/tenants/${id}`, { method: 'DELETE' });
-        
-        if (res.ok) {
-            alert('Salão excluído permanentemente.');
-            fetchTenants();
-        } else {
-            alert('Erro ao excluir.');
-        }
+        if (res.ok) { alert('Salão excluído.'); fetchTenants(); }
     } catch (error) { alert('Erro de conexão'); }
   };
-  // ----------------------------------
 
-  const abrirModalTrial = (tenant: any) => {
-      setTenantSelecionado(tenant);
-      setDiasTrial(7);
-      setModalTrialAberto(true);
+  // --- FUNÇÕES DE EDIÇÃO ---
+  const abrirModalEdit = (t: any) => {
+      setEditTenant({
+          id: t.id,
+          nome: t.nome,
+          slug: t.slug,
+          plano: t.plano,
+          statusAssinatura: t.statusAssinatura,
+          whatsappInstance: t.whatsappInstance || '',
+          trialFim: t.trialFim ? t.trialFim.split('T')[0] : '' // Formata data para o input
+      });
+      setModalEditAberto(true);
   };
 
-  const salvarTrial = async () => {
+  const salvarEdicao = async (e: React.FormEvent) => {
+      e.preventDefault();
       try {
-          const dataFim = new Date();
-          dataFim.setDate(dataFim.getDate() + parseInt(diasTrial.toString()));
-          
           const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-          await fetch(`${apiUrl}/tenants/${tenantSelecionado.id}`, {
+          
+          // Prepara os dados (se data vazia, manda null)
+          const payload = {
+              ...editTenant,
+              trialFim: editTenant.trialFim ? new Date(editTenant.trialFim).toISOString() : null
+          };
+
+          const res = await fetch(`${apiUrl}/tenants/${editTenant.id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ statusAssinatura: 'TRIAL', trialFim: dataFim.toISOString(), plano: 'SUPREME' })
+              body: JSON.stringify(payload)
           });
-          alert(`Sucesso! ${tenantSelecionado.nome} ganhou ${diasTrial} dias.`);
-          setModalTrialAberto(false);
-          fetchTenants();
-      } catch (error) { alert('Erro ao aplicar trial'); }
-  };
 
-  if (loading) return <div className="p-10 text-center">Carregando...</div>;
+          if (res.ok) {
+              alert('Dados atualizados com sucesso!');
+              setModalEditAberto(false);
+              fetchTenants();
+          } else {
+              alert('Erro ao atualizar.');
+          }
+      } catch (error) { alert('Erro de conexão.'); }
+  };
+  // ------------------------
+
+  if (loading) return <div className="p-10 text-center text-white">Carregando Painel Admin...</div>;
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
@@ -122,16 +139,13 @@ export default function AdminPage() {
                 <thead className="bg-gray-700 text-gray-300 text-xs uppercase">
                     <tr>
                         <th className="p-4">Salão</th>
-                        <th className="p-4">Plano</th>
-                        <th className="p-4 text-center">Dados</th>
-                        <th className="p-4">Status</th>
+                        <th className="p-4">Plano / Status</th>
+                        <th className="p-4 text-center">WhatsApp</th>
                         <th className="p-4 text-right">Ações</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
-                    {tenants.map(t => {
-                        const diasRestantes = t.trialFim ? Math.ceil((new Date(t.trialFim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
-                        return (
+                    {tenants.map(t => (
                         <tr key={t.id} className="hover:bg-gray-750 transition-colors">
                             <td className="p-4">
                                 <div className="font-bold text-white">{t.nome}</div>
@@ -139,37 +153,90 @@ export default function AdminPage() {
                             </td>
                             <td className="p-4">
                                 <span className="bg-blue-900 text-blue-200 text-xs px-2 py-1 rounded mr-2">{t.plano}</span>
-                                {t.statusAssinatura === 'TRIAL' && <span className={`text-xs font-bold ${diasRestantes > 0 ? 'text-green-400' : 'text-red-400'}`}>{diasRestantes > 0 ? `${diasRestantes}d rest.` : 'EXPIRADO'}</span>}
+                                <span className={`text-xs font-bold px-2 py-1 rounded ${t.statusAssinatura === 'ACTIVE' ? 'bg-green-900 text-green-300' : t.statusAssinatura === 'OVERDUE' ? 'bg-red-900 text-red-300' : 'bg-yellow-900 text-yellow-300'}`}>
+                                    {t.statusAssinatura}
+                                </span>
                             </td>
-                            <td className="p-4 text-center text-sm text-gray-400">
-                                {t._count?.usuarios || 0} usuários<br/>{t._count?.agendamentos || 0} agendamentos
-                            </td>
-                            <td className="p-4">
-                                {t.ativo ? <span className="text-green-400 text-xs font-bold">ATIVO</span> : <span className="text-red-400 text-xs font-bold">BLOQUEADO</span>}
+                            <td className="p-4 text-center">
+                                {t.whatsappInstance ? (
+                                    <span className="text-green-400 text-xs">✅ {t.whatsappInstance}</span>
+                                ) : (
+                                    <span className="text-gray-500 text-xs">Sem Config</span>
+                                )}
                             </td>
                             <td className="p-4 text-right flex justify-end gap-2">
-                                <button onClick={() => abrirModalTrial(t)} className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs px-2 py-1 rounded" title="Dar Trial">🎁</button>
-                                <button onClick={() => acessarSalao(t)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2 py-1 rounded font-bold">ENTRAR</button>
-                                <button onClick={() => handleToggleStatus(t.id, t.ativo)} className={`text-xs font-bold px-2 py-1 rounded ${t.ativo ? 'bg-gray-600 hover:bg-gray-500' : 'bg-green-600'}`}>{t.ativo ? 'BLOQ' : 'LIB'}</button>
+                                {/* BOTÃO EDITAR (Lápis) */}
+                                <button onClick={() => abrirModalEdit(t)} className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded font-bold">✏️ EDITAR</button>
                                 
-                                {/* BOTÃO EXCLUIR */}
-                                <button onClick={() => handleDelete(t.id, t.nome)} className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded font-bold ml-2" title="Excluir Salão">🗑️</button>
+                                <button onClick={() => acessarSalao(t)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded font-bold">ACESSAR</button>
+                                
+                                <button onClick={() => handleToggleStatus(t.id, t.ativo)} className={`text-xs font-bold px-3 py-1 rounded ${t.ativo ? 'bg-gray-700 hover:bg-red-900 text-gray-300' : 'bg-green-800 text-green-100'}`}>
+                                    {t.ativo ? 'BLOQ' : 'LIB'}
+                                </button>
+                                
+                                <button onClick={() => handleDelete(t.id, t.nome)} className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded font-bold" title="Excluir">🗑️</button>
                             </td>
                         </tr>
-                    )})}
+                    ))}
                 </tbody>
             </table>
         </div>
 
-        {modalTrialAberto && (
+        {/* MODAL DE EDIÇÃO COMPLETA */}
+        {modalEditAberto && (
             <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-                <div className="bg-gray-800 border border-gray-600 w-full max-w-sm rounded-lg p-6 shadow-2xl">
-                    <h3 className="text-xl font-bold text-white mb-4">Presentear {tenantSelecionado?.nome}</h3>
-                    <input type="number" className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white mt-1 mb-4" value={diasTrial} onChange={e => setDiasTrial(Number(e.target.value))} min="1" max="365" />
-                    <div className="flex gap-3">
-                        <button onClick={salvarTrial} className="flex-1 bg-green-600 text-white py-2 rounded font-bold">Confirmar</button>
-                        <button onClick={() => setModalTrialAberto(false)} className="flex-1 bg-gray-700 text-white py-2 rounded">Cancelar</button>
-                    </div>
+                <div className="bg-gray-800 border border-gray-600 w-full max-w-md rounded-lg p-6 shadow-2xl">
+                    <h3 className="text-xl font-bold text-white mb-6">Editar Salão</h3>
+                    
+                    <form onSubmit={salvarEdicao} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome do Salão</label>
+                            <input type="text" className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-indigo-500" 
+                                value={editTenant.nome} onChange={e => setEditTenant({...editTenant, nome: e.target.value})} />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Instância WhatsApp (Evolution)</label>
+                            <input type="text" className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none focus:border-indigo-500" 
+                                placeholder="Ex: Zappy"
+                                value={editTenant.whatsappInstance} onChange={e => setEditTenant({...editTenant, whatsappInstance: e.target.value})} />
+                            <p className="text-[10px] text-gray-500 mt-1">Nome exato criado na Evolution API.</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plano</label>
+                                <select className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none"
+                                    value={editTenant.plano} onChange={e => setEditTenant({...editTenant, plano: e.target.value})}>
+                                    <option value="FREE">FREE</option>
+                                    <option value="INDIVIDUAL">INDIVIDUAL</option>
+                                    <option value="PRIME">PRIME</option>
+                                    <option value="SUPREME">SUPREME</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status Financeiro</label>
+                                <select className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none"
+                                    value={editTenant.statusAssinatura} onChange={e => setEditTenant({...editTenant, statusAssinatura: e.target.value})}>
+                                    <option value="TRIAL">TRIAL (Teste)</option>
+                                    <option value="ACTIVE">ACTIVE (Pago)</option>
+                                    <option value="OVERDUE">OVERDUE (Devendo)</option>
+                                    <option value="CANCELED">CANCELED</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Validade (Trial/Vencimento)</label>
+                            <input type="date" className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white outline-none" 
+                                value={editTenant.trialFim} onChange={e => setEditTenant({...editTenant, trialFim: e.target.value})} />
+                        </div>
+
+                        <div className="flex gap-3 pt-4">
+                            <button type="submit" className="flex-1 bg-indigo-600 text-white py-2 rounded font-bold hover:bg-indigo-700">Salvar Alterações</button>
+                            <button type="button" onClick={() => setModalEditAberto(false)} className="flex-1 bg-gray-700 text-white py-2 rounded hover:bg-gray-600">Cancelar</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         )}
