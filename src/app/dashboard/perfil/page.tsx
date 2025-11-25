@@ -53,7 +53,7 @@ export default function PerfilPage() {
         const dadosUser = await resUser.json();
         setUsuario(dadosUser);
 
-        // 2. Dados Salão
+        // 2. Dados Salão (IMPORTANTE)
         const resTenant = await fetch(`${apiUrl}/tenants/${userLocal.tenant.id}`);
         const dadosTenant = await resTenant.json();
         setTenant(dadosTenant);
@@ -103,6 +103,7 @@ export default function PerfilPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         });
+
         if (res.ok) {
             alert('Perfil atualizado!');
             const userLocal = JSON.parse(localStorage.getItem('usuario_saas') || '{}');
@@ -127,8 +128,8 @@ export default function PerfilPage() {
         });
 
         if (res.ok) {
-            alert('Salão atualizado com sucesso!');
-            // Atualiza o slug no storage se mudou
+            alert('Salão atualizado com sucesso! As cores podem levar um instante para aplicar na página pública.');
+            // Atualiza storage
             const userLocal = JSON.parse(localStorage.getItem('usuario_saas') || '{}');
             userLocal.tenant.nome = formTenant.nome;
             userLocal.tenant.slug = formTenant.slug;
@@ -175,6 +176,7 @@ export default function PerfilPage() {
 
   if (loading) return <div className="p-10 text-center">Carregando perfil...</div>;
 
+  // Verifica se é Dono para mostrar a aba
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
 
   return (
@@ -182,7 +184,7 @@ export default function PerfilPage() {
       <div className="max-w-4xl mx-auto">
         
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Meu Perfil</h1>
           <button onClick={() => router.push('/dashboard')} className="text-gray-600 hover:text-gray-900">← Voltar</button>
         </div>
 
@@ -197,22 +199,23 @@ export default function PerfilPage() {
                     <h2 className="text-2xl font-bold">{usuario.nome}</h2>
                     <p className="text-indigo-100">{usuario.email}</p>
                     <span className="text-xs bg-white/20 px-2 py-1 rounded mt-2 inline-block uppercase tracking-wider">
-                        {usuario.role}
+                        {usuario.role.replace('_', ' ')}
                     </span>
                 </div>
             </div>
 
             {/* Menu de Abas */}
             <div className="flex border-b border-gray-200 overflow-x-auto">
-                <button onClick={() => setAbaAtiva('dados')} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 ${abaAtiva === 'dados' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500'}`}>📝 Dados Pessoais</button>
+                <button onClick={() => setAbaAtiva('dados')} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 whitespace-nowrap ${abaAtiva === 'dados' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>📝 Dados Pessoais</button>
                 
+                {/* ESSA ABA SÓ APARECE SE FOR DONO */}
                 {isDono && (
-                    <button onClick={() => setAbaAtiva('salao')} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 ${abaAtiva === 'salao' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500'}`}>🏪 Meu Salão</button>
+                    <button onClick={() => setAbaAtiva('salao')} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 whitespace-nowrap ${abaAtiva === 'salao' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>🏪 Meu Salão</button>
                 )}
 
-                <button onClick={() => setAbaAtiva('servicos')} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 ${abaAtiva === 'servicos' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500'}`}>💅 Meus Serviços</button>
-                <button onClick={() => setAbaAtiva('horarios')} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 ${abaAtiva === 'horarios' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500'}`}>⏰ Meus Horários</button>
-                <button onClick={() => setAbaAtiva('senha')} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 ${abaAtiva === 'senha' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500'}`}>🔒 Senha</button>
+                <button onClick={() => setAbaAtiva('servicos')} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 whitespace-nowrap ${abaAtiva === 'servicos' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>💅 Meus Serviços</button>
+                <button onClick={() => setAbaAtiva('horarios')} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 whitespace-nowrap ${abaAtiva === 'horarios' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>⏰ Meus Horários</button>
+                <button onClick={() => setAbaAtiva('senha')} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 whitespace-nowrap ${abaAtiva === 'senha' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>🔒 Senha</button>
             </div>
 
             <div className="p-6">
@@ -255,7 +258,6 @@ export default function PerfilPage() {
                                     <input type="color" className="h-10 w-10 rounded cursor-pointer border-0" value={formTenant.corPrimaria} onChange={e => setFormTenant({...formTenant, corPrimaria: e.target.value})} />
                                     <input type="text" className="w-full border rounded-lg p-2.5 uppercase" value={formTenant.corPrimaria} onChange={e => setFormTenant({...formTenant, corPrimaria: e.target.value})} />
                                 </div>
-                                <p className="text-xs text-gray-400 mt-1">Botões e destaques.</p>
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cor de Fundo</label>
@@ -263,7 +265,6 @@ export default function PerfilPage() {
                                     <input type="color" className="h-10 w-10 rounded cursor-pointer border-0" value={formTenant.corSecundaria} onChange={e => setFormTenant({...formTenant, corSecundaria: e.target.value})} />
                                     <input type="text" className="w-full border rounded-lg p-2.5 uppercase" value={formTenant.corSecundaria} onChange={e => setFormTenant({...formTenant, corSecundaria: e.target.value})} />
                                 </div>
-                                <p className="text-xs text-gray-400 mt-1">Fundo da página.</p>
                             </div>
                         </div>
 
