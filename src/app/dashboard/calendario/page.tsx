@@ -60,6 +60,8 @@ export default function CalendarioPage() {
   const carregarDados = async (tenantId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      
+      // Busca tudo, incluindo as cores do Tenant
       const [resServ, resProf, resAgenda, resCli, resTenant] = await Promise.all([
         fetch(`${apiUrl}/services/tenant/${tenantId}`),
         fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
@@ -72,12 +74,17 @@ export default function CalendarioPage() {
       if (resProf.ok) setProfissionais(await resProf.json());
       if (resCli.ok) setClientes(await resCli.json());
       if (resTenant.ok) setTenant(await resTenant.json());
+      
       if (resAgenda.ok) {
         const dados = await resAgenda.json();
         setAgendamentos(Array.isArray(dados) ? dados.filter((a:any) => a.status !== 'CANCELADO') : []);
       }
     } catch (error) { console.error(error); }
   };
+
+  // Cores Dinâmicas
+  const corPrincipal = tenant?.corPrimaria || '#4F46E5';
+  const corFundo = tenant?.corSecundaria || '#F3F4F6';
 
   // --- Lógica do Calendário ---
   const renderHeader = () => {
@@ -113,6 +120,10 @@ export default function CalendarioPage() {
     const dateFormat = "d";
     const dayList = eachDayOfInterval({ start: startDate, end: endDate });
 
+    // Data de hoje zerada para comparação (bloquear passado)
+    const hojeZerado = new Date();
+    hojeZerado.setHours(0,0,0,0);
+
     return (
       <div className="grid grid-cols-7 gap-2">
         {dayList.map((dayItem, idx) => {
@@ -122,22 +133,24 @@ export default function CalendarioPage() {
 
           const isToday = isSameDay(dayItem, new Date());
           const isCurrentMonth = isSameMonth(dayItem, monthStart);
+          const isPast = dayItem < hojeZerado;
 
           return (
             <div 
               key={idx}
-              className={`h-24 md:h-32 border rounded-lg p-2 cursor-pointer transition-colors flex flex-col justify-between
-                ${!isCurrentMonth ? 'bg-gray-50 text-gray-400' : 'bg-white text-gray-700 hover:border-gray-400'}
+              className={`h-24 md:h-32 border rounded-lg p-2 flex flex-col justify-between transition-colors
+                ${!isCurrentMonth ? 'bg-gray-50 text-gray-400' : isPast ? 'bg-gray-100 opacity-60 cursor-not-allowed' : 'bg-white text-gray-700 cursor-pointer hover:border-gray-400'}
                 ${isToday ? 'border-2 bg-indigo-50' : 'border-gray-200'}
               `}
               style={isToday ? { borderColor: corPrincipal } : {}}
               onClick={() => {
+                if (isPast) return;
                 setSelectedDate(dayItem);
                 setNovoAgendamento(prev => ({ ...prev, horario: '' })); 
               }}
             >
               <div className="flex justify-between items-start">
-                <span className={`text-sm font-bold ${isToday ? 'text-indigo-700' : ''}`} style={isToday ? { color: corPrincipal } : {}}>
+                <span className={`text-sm font-bold ${isToday ? '' : ''}`} style={isToday ? { color: corPrincipal } : {}}>
                   {format(dayItem, dateFormat)}
                 </span>
                 {agendamentosDoDia.length > 0 && (
@@ -206,24 +219,20 @@ export default function CalendarioPage() {
     if (cli) setNovoAgendamento(prev => ({ ...prev, nomeCliente: val, telefoneCliente: cli.telefone }));
   };
 
-  // Cores
-  const corPrincipal = tenant?.corPrimaria || '#4F46E5';
-  const corFundo = tenant?.corSecundaria || '#F3F4F6';
-
   return (
     <div className="min-h-screen p-4 md:p-8" style={{ backgroundColor: corFundo }}>
       <div className="max-w-7xl mx-auto">
         
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Calendário Geral</h1>
-          <button onClick={() => router.push('/dashboard')} className="text-gray-600 hover:text-gray-900">← Voltar</button>
+          <button onClick={() => router.push('/dashboard')} className="font-medium hover:opacity-75" style={{ color: '#6B7280' }}>← Voltar ao Painel</button>
         </div>
 
         {renderHeader()}
         {renderDays()}
         {renderCells()}
 
-        {/* MODAL */}
+        {/* MODAL DE DETALHES DO DIA */}
         {selectedDate && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -236,7 +245,7 @@ export default function CalendarioPage() {
 
               <div className="p-6 space-y-6">
                 
-                {/* Lista do Dia */}
+                {/* Lista de Agendamentos do Dia */}
                 <div>
                   <h4 className="text-sm font-bold text-gray-500 uppercase mb-3">Agenda do Dia</h4>
                   <div className="space-y-2">
@@ -268,7 +277,6 @@ export default function CalendarioPage() {
                   <h4 className="text-sm font-bold text-gray-500 uppercase mb-3">Novo Agendamento</h4>
                   <form onSubmit={handleQuickCreate} className="space-y-3">
                     
-                    {/* Seleção de Horário (MOVIDA PARA CÁ) */}
                     <div>
                       <label className="text-xs font-bold text-gray-600">Horário Livre</label>
                       <select required className="w-full mt-1 border rounded p-2 text-sm outline-none focus:ring-2" 
@@ -307,11 +315,11 @@ export default function CalendarioPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <select required className="w-full border rounded p-2 text-sm" value={novoAgendamento.serviceId} onChange={e => setNovoAgendamento({...novoAgendamento, serviceId: e.target.value})}>
+                      <select required className="w-full border rounded p-2 text-sm outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.serviceId} onChange={e => setNovoAgendamento({...novoAgendamento, serviceId: e.target.value})}>
                         <option value="">Serviço...</option>
                         {servicos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
                       </select>
-                      <select required className="w-full border rounded p-2 text-sm" value={novoAgendamento.professionalId} onChange={e => setNovoAgendamento({...novoAgendamento, professionalId: e.target.value})}>
+                      <select required className="w-full border rounded p-2 text-sm outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.professionalId} onChange={e => setNovoAgendamento({...novoAgendamento, professionalId: e.target.value})}>
                         <option value="">Profissional...</option>
                         {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                       </select>
