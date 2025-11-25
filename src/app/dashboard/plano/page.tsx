@@ -2,20 +2,58 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { QRCodeSVG } from 'qrcode.react'; // Vamos usar uma lib leve, se não tiver, usaremos texto puro
 
 export default function PlanoPage() {
   const router = useRouter();
+  const [usuario, setUsuario] = useState<any>(null);
   const [tenant, setTenant] = useState<any>(null);
+  
+  // Estados de Pagamento
+  const [loadingPay, setLoadingPay] = useState(false);
+  const [modalPix, setModalPix] = useState(false);
+  const [dadosPix, setDadosPix] = useState({ code: '', url: '' });
 
   useEffect(() => {
     const dadosSalvos = localStorage.getItem('usuario_saas');
     if (!dadosSalvos) { router.push('/login'); return; }
     const user = JSON.parse(dadosSalvos);
+    setUsuario(user);
     
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${user.tenant.id}`)
         .then(res => res.json())
         .then(data => setTenant(data));
   }, []);
+
+  const handleAssinar = async (planoId: string) => {
+      if (!confirm(`Confirmar assinatura do plano ${planoId}?`)) return;
+      setLoadingPay(true);
+
+      try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+          const res = await fetch(`${apiUrl}/billing/subscribe`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  tenantId: usuario.tenant.id,
+                  planoId: planoId
+              })
+          });
+
+          const data = await res.json();
+
+          if (res.ok) {
+              setDadosPix({ code: data.pixUrl, url: data.pixUrl }); // O Asaas retorna a URL da fatura
+              setModalPix(true);
+          } else {
+              alert(`Erro: ${data.message}`);
+          }
+      } catch (error) {
+          alert('Erro de conexão com o pagamento.');
+      } finally {
+          setLoadingPay(false);
+      }
+  };
 
   if (!tenant) return <div className="p-10">Carregando...</div>;
 
@@ -23,6 +61,10 @@ export default function PlanoPage() {
   const diasRestantes = tenant.trialFim 
     ? Math.ceil((new Date(tenant.trialFim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) 
     : 0;
+
+  // Cores (usando padrão se não tiver)
+  const corPrincipal = tenant.corPrimaria || '#4F46E5';
+  const corFundo = tenant.corSecundaria || '#F3F4F6';
 
   const planos = [
     {
@@ -61,23 +103,22 @@ export default function PlanoPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen p-4 md:p-8" style={{ backgroundColor: corFundo }}>
       <div className="max-w-6xl mx-auto">
         
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Sua Assinatura</h1>
             <p className="text-gray-500 flex items-center gap-2 mt-1">
-                Plano Atual: <span className="font-bold text-indigo-600">{tenant.plano}</span>
+                Plano Atual: <span className="font-bold" style={{ color: corPrincipal }}>{tenant.plano}</span>
                 
                 {isTrial && diasRestantes > 0 && (
-                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold border border-green-200">
-                        TESTE GRÁTIS: RESTAM {diasRestantes} DIAS
+                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold border border-green-200">
+                        TESTE: {diasRestantes} DIAS RESTANTES
                     </span>
                 )}
-                
                 {isTrial && diasRestantes <= 0 && (
-                    <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-bold border border-red-200">
+                    <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-bold border border-red-200">
                         TESTE EXPIRADO
                     </span>
                 )}
@@ -91,18 +132,9 @@ export default function PlanoPage() {
                 <div key={plano.id} className={`relative bg-white rounded-xl shadow-lg overflow-hidden border-2 ${tenant.plano === plano.id ? 'border-green-500' : 'border-transparent'} flex flex-col`}>
                     
                     {tenant.plano === plano.id && (
-                        <div className="bg-green-500 text-white text-center text-xs font-bold py-1">
-                            ATUAL
-                        </div>
+                        <div className="bg-green-500 text-white text-center text-xs font-bold py-1">ATUAL</div>
                     )}
 
-                    {plano.destaque && tenant.plano !== plano.id && (
-                        <div className="bg-indigo-100 text-indigo-800 text-center text-xs font-bold py-1">
-                            MAIS POPULAR
-                        </div>
-                    )}
-
-                    {/* HEADER DO CARD COM A COR PERSONALIZADA */}
                     <div className={`p-4 ${plano.corHeader} ${plano.corTexto}`}>
                         <h3 className="text-lg font-bold">{plano.nome}</h3>
                         <p className="text-2xl font-extrabold mt-1">{plano.preco}<span className="text-xs font-normal opacity-80">/mês</span></p>
@@ -119,25 +151,52 @@ export default function PlanoPage() {
 
                         {tenant.plano !== plano.id && plano.id !== 'FREE' && (
                             <button 
-                                className="w-full py-2 rounded-md font-bold text-xs border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 transition-colors"
-                                onClick={() => alert(`Em breve: Assinar ${plano.nome} por ${plano.preco}`)}
+                                disabled={loadingPay}
+                                className="w-full py-2 rounded-md font-bold text-xs border-2 hover:bg-opacity-10 transition-colors"
+                                style={{ borderColor: corPrincipal, color: corPrincipal }}
+                                onClick={() => handleAssinar(plano.id)}
                             >
-                                Assinar
+                                {loadingPay ? 'Gerando...' : 'Assinar'}
                             </button>
                         )}
                         
                         {tenant.plano !== 'FREE' && plano.id === 'FREE' && (
                              <button 
                                 className="w-full py-2 rounded-md font-bold text-xs border-2 border-gray-300 text-gray-500 hover:bg-gray-50 transition-colors"
-                                onClick={() => alert('Downgrade para Free irá limitar seus recursos.')}
+                                onClick={() => alert('Para cancelar, entre em contato com o suporte.')}
                             >
-                                Voltar p/ Free
+                                Cancelar Assinatura
                             </button>
                         )}
                     </div>
                 </div>
             ))}
         </div>
+
+        {/* MODAL DE PIX */}
+        {modalPix && (
+            <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+                <div className="bg-white w-full max-w-sm rounded-xl p-6 shadow-2xl text-center">
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">Pagamento via Pix 💸</h3>
+                    <p className="text-sm text-gray-500 mb-4">Pague para liberar seu acesso imediatamente.</p>
+                    
+                    <div className="bg-gray-100 p-4 rounded mb-4 break-all">
+                        <p className="text-xs text-gray-500 mb-1">Link da Fatura:</p>
+                        <a href={dadosPix.url} target="_blank" className="text-blue-600 font-bold text-sm underline">
+                            Clique aqui para abrir o Pix/Boleto
+                        </a>
+                    </div>
+
+                    <button 
+                        onClick={() => setModalPix(false)}
+                        className="w-full text-white py-3 rounded-lg font-bold"
+                        style={{ backgroundColor: corPrincipal }}
+                    >
+                        Já paguei! Fechar
+                    </button>
+                </div>
+            </div>
+        )}
 
       </div>
     </div>
