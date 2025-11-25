@@ -23,7 +23,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ hoje: 0, faturamento: 0 });
   const [ranking, setRanking] = useState<any[]>([]);
 
-  // Estados para o Modal de Agendamento
+  // Estados para o Modal
   const [modalAberto, setModalAberto] = useState(false);
   const [servicos, setServicos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -56,8 +56,6 @@ export default function Dashboard() {
     }
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
-    
-    // Visão Inicial: Começa filtrado nele mesmo
     setFiltroId(user.id); 
 
     fetchDados(user.tenant.id);
@@ -68,24 +66,11 @@ export default function Dashboard() {
     filtrarEstatistiscas();
   }, [filtroId, todosAgendamentos]);
 
-  // --- CORREÇÃO: LÓGICA DE PRÉ-SELEÇÃO ROBUSTA ---
   useEffect(() => {
-    if (modalAberto && usuario) {
-        // 1. Se for Profissional, sempre trava nele
-        if (usuario.role === 'PROFISSIONAL') {
-            setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
-        } 
-        // 2. Se for Dono, respeita o filtro que ele escolheu na tela
-        else if (filtroId && filtroId !== 'todos') {
-            setNovoAgendamento(prev => ({ ...prev, professionalId: filtroId }));
-        }
-        // 3. Se for Dono e estiver vendo "Todos", limpa para ele escolher
-        else {
-            setNovoAgendamento(prev => ({ ...prev, professionalId: '' }));
-        }
+    if (modalAberto && usuario && usuario.role === 'PROFISSIONAL' && profissionais.length > 0) {
+        setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
     }
-  }, [modalAberto, usuario, filtroId]);
-  // -----------------------------------------------
+  }, [modalAberto, usuario, profissionais]);
 
   const fetchDados = async (tenantId: string) => {
     try {
@@ -101,13 +86,11 @@ export default function Dashboard() {
       const dadosProf = await resProf.json();
       const dadosTenant = await resTenant.json();
 
-      setTenant(dadosTenant);
+      setTenant(dadosTenant); // AQUI CARREGA AS CORES
       
       const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
-      
       setTodosAgendamentos(ativos);
       setProfissionais(dadosProf);
-
     } catch (error) {
       console.error('Erro ao buscar dados', error);
     } finally {
@@ -129,41 +112,28 @@ export default function Dashboard() {
 
   const filtrarEstatistiscas = () => {
     if (!filtroId) return;
-
     let lista = todosAgendamentos;
-    
     if (filtroId !== 'todos') {
         lista = todosAgendamentos.filter(ag => ag.profissional.id === filtroId);
     }
-
     setAgendamentosFiltrados(lista);
 
     const hoje = new Date().toISOString().split('T')[0];
     const agendamentosHoje = lista.filter((a: any) => a.dataHora.startsWith(hoje));
-    
-    const totalMes = lista.reduce((acc: number, curr: any) => {
-      return acc + Number(curr.servico.preco);
-    }, 0);
+    const totalMes = lista.reduce((acc: number, curr: any) => acc + Number(curr.servico.preco), 0);
 
-    setStats({
-      hoje: agendamentosHoje.length,
-      faturamento: totalMes
-    });
+    setStats({ hoje: agendamentosHoje.length, faturamento: totalMes });
 
-    // Ranking
     const agrupado: any = {};
     todosAgendamentos.forEach((ag: any) => {
       const nome = ag.profissional.nome;
-      if (!agrupado[nome]) {
-          agrupado[nome] = { qtd: 0, total: 0 };
-      }
+      if (!agrupado[nome]) agrupado[nome] = { qtd: 0, total: 0 };
       agrupado[nome].qtd += 1;
       agrupado[nome].total += Number(ag.servico.preco);
     });
 
     const rankingArray = Object.keys(agrupado).map(key => ({
-      nome: key,
-      ...agrupado[key]
+      nome: key, ...agrupado[key]
     })).sort((a, b) => b.total - a.total);
 
     setRanking(rankingArray);
@@ -194,14 +164,11 @@ export default function Dashboard() {
 
       if (res.ok) {
         alert('Agendamento realizado! 📅');
-        // Reseta form mas mantém profissional se for o caso
         const manterProfissional = (usuario.role === 'PROFISSIONAL' || (filtroId && filtroId !== 'todos')) ? novoAgendamento.professionalId : '';
-        
         setNovoAgendamento({ 
             nomeCliente: '', telefoneCliente: '', serviceId: '', 
             professionalId: manterProfissional 
         });
-        
         setDataSelecionada(''); setHorarioSelecionado('');
         setModalAberto(false);
         fetchDados(usuario.tenant.id);
@@ -232,10 +199,10 @@ export default function Dashboard() {
           {agendamentosDoDia.length === 0 ? <p className="text-xs text-gray-400 italic text-center py-4">Livre</p> : (
             <ul className="space-y-2">
               {agendamentosDoDia.map((ag: any) => (
-                <li key={ag.id} className={`text-sm p-2 rounded border-l-2 ${ag.status === 'CONCLUIDO' ? 'bg-gray-100 border-gray-400 text-gray-500' : 'bg-indigo-50 border-indigo-500 text-indigo-700'}`}>
-                  <strong className="block">{new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
-                  <p className="truncate font-medium">{ag.cliente.nome}</p>
-                  {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1">{ag.profissional.nome}</p>}
+                <li key={ag.id} className="text-sm p-2 rounded border-l-4 bg-gray-50" style={{ borderLeftColor: corPrincipal, backgroundColor: '#F9FAFB' }}>
+                  <strong className="block text-gray-800">{new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
+                  <p className="truncate font-medium text-gray-700">{ag.cliente.nome}</p>
+                  {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-500">{ag.profissional.nome}</p>}
                 </li>
               ))}
             </ul>
@@ -250,15 +217,20 @@ export default function Dashboard() {
 
   const isProfissional = usuario.role === 'PROFISSIONAL';
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
+  
+  // --- DEFINIÇÃO DAS CORES DINÂMICAS ---
+  const corPrincipal = tenant?.corPrimaria || '#4F46E5'; // Roxo padrão
+  // -------------------------------------
+
   let planoLabel = null;
   if (tenant) {
       if (tenant.statusAssinatura === 'TRIAL') {
           const dias = Math.ceil((new Date(tenant.trialFim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
           planoLabel = <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold border border-green-300 shadow-sm animate-pulse">💎 Teste: {dias} dias</span>;
       } else if (tenant.plano === 'FREE') {
-          planoLabel = <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Plano Free</span>;
+          planoLabel = <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Free</span>;
       } else {
-          planoLabel = <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-bold">{tenant.plano}</span>;
+          planoLabel = <span className="text-xs px-2 py-1 rounded-full font-bold text-white" style={{ backgroundColor: corPrincipal }}>{tenant.plano}</span>;
       }
   }
   const linkPublico = usuario.tenant?.slug ? `agendar.devhenri.shop/${usuario.tenant.slug}` : '';
@@ -281,7 +253,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-indigo-600 truncate max-w-[100px] md:max-w-none">{usuario.tenant.nome}</h1>
+              <h1 className="text-xl font-bold truncate max-w-[100px] md:max-w-none" style={{ color: corPrincipal }}>{usuario.tenant.nome}</h1>
               <div className="hidden md:block">{planoLabel}</div>
               <div className="hidden md:flex space-x-1 ml-4">
                 <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
@@ -294,15 +266,15 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-3">
               {usuario.role === 'ADMIN_GLOBAL' && <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black shadow-sm">👑 ADMIN</button>}
-              <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200">💎</button>
-              <button onClick={() => router.push('/dashboard/perfil')} className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 group"><div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 group-hover:bg-indigo-200">{usuario.nome.charAt(0).toUpperCase()}</div></button>
+              <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full border bg-white" style={{ color: corPrincipal, borderColor: corPrincipal }}>💎</button>
+              <button onClick={() => router.push('/dashboard/perfil')} className="flex items-center gap-2 text-gray-700 transition-colors group"><div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold bg-gray-100" style={{ color: corPrincipal }}>{usuario.nome.charAt(0).toUpperCase()}</div></button>
               <button onClick={() => { localStorage.removeItem('usuario_saas'); router.push('/login'); }} className="text-sm text-red-600 hover:text-red-800 font-semibold px-2">Sair</button>
             </div>
           </div>
         </div>
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
           <div className="grid grid-cols-6 divide-x divide-gray-200">
-            <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium text-indigo-600 hover:bg-gray-100 flex flex-col items-center"><span>📅</span> Agenda</button>
+            <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium hover:bg-gray-100 flex flex-col items-center" style={{ color: corPrincipal }}><span>📅</span> Agenda</button>
             <button onClick={() => router.push('/dashboard/calendario')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>🗓️</span> Mês</button>
             <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>💅</span> Serv</button>
             <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>👥</span> Eqp</button>
@@ -315,33 +287,33 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
-        {/* Filtro e Botão */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <div className="flex items-center gap-3 w-full md:w-auto">
                 <h2 className="text-lg font-bold text-gray-800 whitespace-nowrap">
                     {filtroId === 'todos' ? 'Visão Geral' : isProfissional ? 'Minha Agenda' : `Agenda de ${profissionais.find(p => p.id === filtroId)?.nome || '...'}`}
                 </h2>
-                <select value={filtroId} onChange={(e) => setFiltroId(e.target.value)} disabled={isProfissional} className={`border border-gray-300 rounded-md p-2 text-sm bg-white shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${isProfissional ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                <select value={filtroId} onChange={(e) => setFiltroId(e.target.value)} disabled={isProfissional} className={`border border-gray-300 rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 ${isProfissional ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} style={{ borderColor: corPrincipal }}>
                     {!isProfissional && <option value="todos">👀 Ver Todos</option>}
                     {profissionais.map(prof => (<option key={prof.id} value={prof.id}>{prof.id === usuario.id ? '👤 Minha Agenda' : `👤 ${prof.nome}`}</option>))}
                 </select>
             </div>
 
-            <button onClick={() => setModalAberto(true)} className="w-full md:w-auto bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-indigo-700 transition-transform active:scale-95 flex items-center justify-center gap-2">
+            <button onClick={() => setModalAberto(true)} className="w-full md:w-auto text-white px-6 py-2 rounded-lg font-bold shadow-md transition-transform active:scale-95 flex items-center justify-center gap-2" style={{ backgroundColor: corPrincipal }}>
                 <span>+</span> Novo Agendamento
             </button>
         </div>
 
-        {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
             <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Agendamentos Totais Hoje' : 'Meus Agendamentos Hoje'} ({stats.hoje})</dt>
-            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2"><div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${Math.min(stats.hoje * 10, 100)}%` }}></div></div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2"><div className="h-2.5 rounded-full" style={{ width: `${Math.min(stats.hoje * 10, 100)}%`, backgroundColor: corPrincipal }}></div></div>
           </div>
           <div className="bg-white overflow-hidden shadow rounded-lg p-5 relative">
             <div className="flex justify-between items-start">
                 <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Faturamento (Mês)' : 'Meu Faturamento (Mês)'}</dt>
-                <button onClick={() => setMostrarValores(!mostrarValores)} className="text-gray-400 hover:text-indigo-600 transition">{mostrarValores ? <IconEyeOpen /> : <IconEyeClosed />}</button>
+                <button onClick={() => setMostrarValores(!mostrarValores)} className="text-gray-400 hover:opacity-70 transition" style={{ color: corPrincipal }}>
+                    {mostrarValores ? <IconEyeOpen /> : <IconEyeClosed />}
+                </button>
             </div>
             <dd className="mt-1 text-3xl font-semibold text-green-600">{mostrarValores ? `R$ ${stats.faturamento.toFixed(2)}` : 'R$ ••••'}</dd>
           </div>
@@ -352,15 +324,14 @@ export default function Dashboard() {
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">Agenda da Semana</h2>
                 {loading ? <p>Carregando...</p> : <div className={isDono ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"}>{renderAgendaSemana()}</div>}
             </div>
-            
             {isDono && (
                 <div>
                     <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
                     <div className="bg-white shadow rounded-lg overflow-hidden">
                         <ul className="divide-y divide-gray-200">
                             {ranking.map((prof, index) => (
-                                <li key={index} className={`p-4 flex items-center justify-between ${prof.nome === usuario?.nome ? 'bg-indigo-50' : ''}`}>
-                                    <div className="flex items-center"><span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 mr-3">{prof.nome.charAt(0)}</span><div><p className="text-sm font-medium text-gray-900">{prof.nome}</p><p className="text-xs text-gray-500">{prof.qtd} agendamentos</p></div></div>
+                                <li key={index} className={`p-4 flex items-center justify-between ${prof.nome === usuario?.nome ? 'bg-gray-50' : ''}`}>
+                                    <div className="flex items-center"><span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold mr-3" style={{ color: corPrincipal }}>{prof.nome.charAt(0)}</span><div><p className="text-sm font-medium text-gray-900">{prof.nome}</p><p className="text-xs text-gray-500">{prof.qtd} agendamentos</p></div></div>
                                     <div className="text-sm font-bold text-green-600">{mostrarValores ? `R$ ${prof.total.toFixed(2)}` : 'R$ ••••'}</div>
                                 </li>
                             ))}
@@ -370,22 +341,19 @@ export default function Dashboard() {
             )}
         </div>
 
-        {/* --- LINK PÚBLICO (NO FINAL) --- */}
         {isDono && (
-            <div className="mt-10 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white">
+            <div className="mt-10 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white order-last md:order-first" style={{ backgroundColor: corPrincipal }}>
                 <div className="mb-3 md:mb-0 text-center md:text-left">
                     <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
-                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
+                    <p className="text-white/80 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
                 </div>
                 <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
                     <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
-                    <button onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))} className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0">Copiar</button>
+                    <button onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))} className="bg-white px-3 py-1 rounded text-xs font-bold hover:bg-gray-100 transition shrink-0" style={{ color: corPrincipal }}>Copiar</button>
                 </div>
             </div>
         )}
-        {/* ----------------------------- */}
 
-        {/* MODAL NOVO AGENDAMENTO */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -396,24 +364,24 @@ export default function Dashboard() {
                     <form onSubmit={handleCreate} className="space-y-4">
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Cliente</label>
-                            <input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none" value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar nome..." />
+                            <input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar nome..." />
                             <datalist id="lista-cli-modal">{clientes.map(c => <option key={c.id} value={c.nome} />)}</datalist>
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">WhatsApp</label>
-                            <input required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none" value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} placeholder="11999..." />
+                            <input required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} placeholder="11999..." />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Serviço</label>
-                                <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none" value={novoAgendamento.serviceId} onChange={e => setNovoAgendamento({...novoAgendamento, serviceId: e.target.value})}>
+                                <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.serviceId} onChange={e => setNovoAgendamento({...novoAgendamento, serviceId: e.target.value})}>
                                     <option value="">Selecione...</option>
                                     {servicos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Profissional</label>
-                                <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none" value={novoAgendamento.professionalId} onChange={e => setNovoAgendamento({...novoAgendamento, professionalId: e.target.value})}>
+                                <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.professionalId} onChange={e => setNovoAgendamento({...novoAgendamento, professionalId: e.target.value})}>
                                     <option value="">Selecione...</option>
                                     {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                                 </select>
@@ -422,17 +390,17 @@ export default function Dashboard() {
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Data</label>
-                                <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none" value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} />
+                                <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} />
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Hora</label>
-                                <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none" value={horarioSelecionado} onChange={e => setHorarioSelecionado(e.target.value)}>
+                                <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={horarioSelecionado} onChange={e => setHorarioSelecionado(e.target.value)}>
                                     <option value="">...</option>
                                     {horariosDisponiveis.map(h => <option key={h} value={h}>{h}</option>)}
                                 </select>
                             </div>
                         </div>
-                        <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg mt-4">Confirmar Agendamento</button>
+                        <button type="submit" className="w-full text-white py-4 rounded-xl font-bold text-lg shadow-lg mt-4 transition-transform active:scale-95" style={{ backgroundColor: corPrincipal }}>Confirmar Agendamento</button>
                     </form>
                 </div>
             </div>
