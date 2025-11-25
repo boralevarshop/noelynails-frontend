@@ -19,6 +19,7 @@ export default function CalendarioPage() {
   const [profissionais, setProfissionais] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [usuario, setUsuario] = useState<any>(null);
+  const [tenant, setTenant] = useState<any>(null); // CORES
   
   // Estado do Modal de Novo Agendamento
   const [novoAgendamento, setNovoAgendamento] = useState({
@@ -29,7 +30,7 @@ export default function CalendarioPage() {
     horario: ''
   });
 
-  // Horários disponíveis (08:00 as 23:00)
+  // Horários disponíveis
   const horariosDisponiveis = (() => {
     const h = [];
     let hora = 8;
@@ -47,25 +48,32 @@ export default function CalendarioPage() {
     if (!dadosSalvos) { router.push('/login'); return; }
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
+    
+    // Se for profissional, já fixa o ID dele
+    if (user.role === 'PROFISSIONAL') {
+        setNovoAgendamento(prev => ({ ...prev, professionalId: user.id }));
+    }
+
     carregarDados(user.tenant.id);
   }, []);
 
   const carregarDados = async (tenantId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const [resServ, resProf, resAgenda, resCli] = await Promise.all([
+      const [resServ, resProf, resAgenda, resCli, resTenant] = await Promise.all([
         fetch(`${apiUrl}/services/tenant/${tenantId}`),
         fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
         fetch(`${apiUrl}/appointments/tenant/${tenantId}`),
-        fetch(`${apiUrl}/clients/tenant/${tenantId}`)
+        fetch(`${apiUrl}/clients/tenant/${tenantId}`),
+        fetch(`${apiUrl}/tenants/${tenantId}`)
       ]);
 
       if (resServ.ok) setServicos(await resServ.json());
       if (resProf.ok) setProfissionais(await resProf.json());
       if (resCli.ok) setClientes(await resCli.json());
+      if (resTenant.ok) setTenant(await resTenant.json());
       if (resAgenda.ok) {
         const dados = await resAgenda.json();
-        // Filtra apenas os ativos
         setAgendamentos(Array.isArray(dados) ? dados.filter((a:any) => a.status !== 'CANCELADO') : []);
       }
     } catch (error) { console.error(error); }
@@ -76,7 +84,7 @@ export default function CalendarioPage() {
     return (
       <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow">
         <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="text-gray-600 hover:bg-gray-100 p-2 rounded">← Anterior</button>
-        <h2 className="text-xl font-bold text-indigo-700 capitalize">
+        <h2 className="text-xl font-bold capitalize" style={{ color: corPrincipal }}>
           {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
         </h2>
         <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="text-gray-600 hover:bg-gray-100 p-2 rounded">Próximo →</button>
@@ -102,19 +110,12 @@ export default function CalendarioPage() {
     const monthEnd = endOfMonth(monthStart);
     const startDate = startOfWeek(monthStart);
     const endDate = endOfWeek(monthEnd);
-
     const dateFormat = "d";
-    const rows = [];
-    let days = [];
-    let day = startDate;
-    let formattedDate = "";
-
     const dayList = eachDayOfInterval({ start: startDate, end: endDate });
 
     return (
       <div className="grid grid-cols-7 gap-2">
         {dayList.map((dayItem, idx) => {
-          // Filtra agendamentos deste dia
           const agendamentosDoDia = agendamentos.filter(a => 
             new Date(a.dataHora).toDateString() === dayItem.toDateString()
           );
@@ -126,29 +127,29 @@ export default function CalendarioPage() {
             <div 
               key={idx}
               className={`h-24 md:h-32 border rounded-lg p-2 cursor-pointer transition-colors flex flex-col justify-between
-                ${!isCurrentMonth ? 'bg-gray-50 text-gray-400' : 'bg-white text-gray-700 hover:border-indigo-500'}
-                ${isToday ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}
+                ${!isCurrentMonth ? 'bg-gray-50 text-gray-400' : 'bg-white text-gray-700 hover:border-gray-400'}
+                ${isToday ? 'border-2 bg-indigo-50' : 'border-gray-200'}
               `}
+              style={isToday ? { borderColor: corPrincipal } : {}}
               onClick={() => {
                 setSelectedDate(dayItem);
-                setNovoAgendamento(prev => ({ ...prev, horario: '' })); // Reseta horário
+                setNovoAgendamento(prev => ({ ...prev, horario: '' })); 
               }}
             >
               <div className="flex justify-between items-start">
-                <span className={`text-sm font-bold ${isToday ? 'text-indigo-600' : ''}`}>
+                <span className={`text-sm font-bold ${isToday ? 'text-indigo-700' : ''}`} style={isToday ? { color: corPrincipal } : {}}>
                   {format(dayItem, dateFormat)}
                 </span>
                 {agendamentosDoDia.length > 0 && (
-                  <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full font-bold">
+                  <span className="text-white text-xs px-2 py-0.5 rounded-full font-bold" style={{ backgroundColor: corPrincipal }}>
                     {agendamentosDoDia.length}
                   </span>
                 )}
               </div>
               
-              {/* Mini visualização (bolinhas) */}
               <div className="flex flex-wrap gap-1 mt-1 overflow-hidden">
                 {agendamentosDoDia.slice(0, 4).map((ag: any, i) => (
-                  <div key={i} className="w-full text-[10px] bg-blue-100 text-blue-700 rounded px-1 truncate">
+                  <div key={i} className="w-full text-[10px] rounded px-1 truncate bg-gray-100 text-gray-600">
                     {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})} - {ag.cliente.nome.split(' ')[0]}
                   </div>
                 ))}
@@ -163,13 +164,11 @@ export default function CalendarioPage() {
     );
   };
 
-  // --- Lógica de Agendamento Rápido no Modal ---
   const handleQuickCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!usuario || !selectedDate) return;
 
     try {
-      // Monta a data final
       const dataIso = format(selectedDate, 'yyyy-MM-dd');
       const dataHoraCombinada = new Date(`${dataIso}T${novoAgendamento.horario}:00`);
 
@@ -186,9 +185,13 @@ export default function CalendarioPage() {
 
       if (res.ok) {
         alert('Agendamento criado! 📅');
-        setNovoAgendamento({ nomeCliente: '', telefoneCliente: '', serviceId: '', professionalId: '', horario: '' });
-        setSelectedDate(null); // Fecha modal
-        carregarDados(usuario.tenant.id); // Atualiza calendário
+        setNovoAgendamento({ 
+            nomeCliente: '', telefoneCliente: '', serviceId: '', 
+            professionalId: usuario.role === 'PROFISSIONAL' ? usuario.id : '', 
+            horario: '' 
+        });
+        setSelectedDate(null); 
+        carregarDados(usuario.tenant.id);
       } else {
         const erro = await res.json();
         alert(`Erro: ${erro.message}`);
@@ -196,7 +199,6 @@ export default function CalendarioPage() {
     } catch (error) { alert('Erro de conexão'); }
   };
 
-  // Auto-complete simples para nome no modal
   const handleNomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setNovoAgendamento(prev => ({ ...prev, nomeCliente: val }));
@@ -204,8 +206,12 @@ export default function CalendarioPage() {
     if (cli) setNovoAgendamento(prev => ({ ...prev, nomeCliente: val, telefoneCliente: cli.telefone }));
   };
 
+  // Cores
+  const corPrincipal = tenant?.corPrimaria || '#4F46E5';
+  const corFundo = tenant?.corSecundaria || '#F3F4F6';
+
   return (
-    <div className="min-h-screen bg-gray-100 p-4 md:p-8">
+    <div className="min-h-screen p-4 md:p-8" style={{ backgroundColor: corFundo }}>
       <div className="max-w-7xl mx-auto">
         
         <div className="flex justify-between items-center mb-6">
@@ -217,7 +223,7 @@ export default function CalendarioPage() {
         {renderDays()}
         {renderCells()}
 
-        {/* MODAL DE DETALHES DO DIA */}
+        {/* MODAL */}
         {selectedDate && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -230,7 +236,7 @@ export default function CalendarioPage() {
 
               <div className="p-6 space-y-6">
                 
-                {/* Lista de Agendamentos do Dia */}
+                {/* Lista do Dia */}
                 <div>
                   <h4 className="text-sm font-bold text-gray-500 uppercase mb-3">Agenda do Dia</h4>
                   <div className="space-y-2">
@@ -241,9 +247,9 @@ export default function CalendarioPage() {
                         .filter(a => new Date(a.dataHora).toDateString() === selectedDate.toDateString())
                         .sort((a,b) => new Date(a.dataHora).getTime() - new Date(b.dataHora).getTime())
                         .map((ag: any) => (
-                          <div key={ag.id} className="flex items-center justify-between bg-gray-50 p-3 rounded border-l-4 border-indigo-500">
+                          <div key={ag.id} className="flex items-center justify-between bg-gray-50 p-3 rounded border-l-4" style={{ borderLeftColor: corPrincipal }}>
                             <div>
-                              <span className="font-bold text-indigo-700 mr-2">
+                              <span className="font-bold mr-2" style={{ color: corPrincipal }}>
                                 {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}
                               </span>
                               <span className="font-medium text-gray-800">{ag.cliente.nome}</span>
@@ -259,13 +265,14 @@ export default function CalendarioPage() {
 
                 {/* Formulário Rápido */}
                 <div>
-                  <h4 className="text-sm font-bold text-gray-500 uppercase mb-3">Novo Agendamento Rápido</h4>
+                  <h4 className="text-sm font-bold text-gray-500 uppercase mb-3">Novo Agendamento</h4>
                   <form onSubmit={handleQuickCreate} className="space-y-3">
                     
-                    {/* Seleção de Horário */}
+                    {/* Seleção de Horário (MOVIDA PARA CÁ) */}
                     <div>
                       <label className="text-xs font-bold text-gray-600">Horário Livre</label>
-                      <select required className="w-full mt-1 border rounded p-2 text-sm" 
+                      <select required className="w-full mt-1 border rounded p-2 text-sm outline-none focus:ring-2" 
+                        style={{ '--tw-ring-color': corPrincipal } as any}
                         value={novoAgendamento.horario} 
                         onChange={e => setNovoAgendamento({...novoAgendamento, horario: e.target.value})}>
                         <option value="">Escolha um horário...</option>
@@ -278,7 +285,8 @@ export default function CalendarioPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs font-bold text-gray-600">Cliente</label>
-                        <input list="lista-cli-modal" required type="text" className="w-full mt-1 border rounded p-2 text-sm" 
+                        <input list="lista-cli-modal" required type="text" className="w-full mt-1 border rounded p-2 text-sm outline-none focus:ring-2" 
+                           style={{ '--tw-ring-color': corPrincipal } as any}
                           value={novoAgendamento.nomeCliente} 
                           onChange={handleNomeChange}
                           placeholder="Nome"
@@ -289,7 +297,8 @@ export default function CalendarioPage() {
                       </div>
                       <div>
                         <label className="text-xs font-bold text-gray-600">WhatsApp</label>
-                        <input required type="text" className="w-full mt-1 border rounded p-2 text-sm" 
+                        <input required type="text" className="w-full mt-1 border rounded p-2 text-sm outline-none focus:ring-2" 
+                           style={{ '--tw-ring-color': corPrincipal } as any}
                           value={novoAgendamento.telefoneCliente} 
                           onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})}
                           placeholder="11999..."
@@ -308,7 +317,7 @@ export default function CalendarioPage() {
                       </select>
                     </div>
 
-                    <button type="submit" className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 font-bold">
+                    <button type="submit" className="w-full text-white py-2 rounded font-bold shadow transition-transform active:scale-95" style={{ backgroundColor: corPrincipal }}>
                       Agendar para dia {format(selectedDate, "dd/MM", { locale: ptBR })}
                     </button>
                   </form>
