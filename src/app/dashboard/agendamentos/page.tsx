@@ -45,14 +45,16 @@ export default function AgendamentosPage() {
     if (!dadosSalvos) { router.push('/login'); return; }
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
-    
-    // Pré-seleciona profissional se for logado
-    if (user.role === 'PROFISSIONAL') {
-        setNovoAgendamento(prev => ({ ...prev, professionalId: user.id }));
-    }
-
     carregarDados(user.tenant.id);
   }, []);
+
+  // --- CORREÇÃO: PRÉ-SELEÇÃO QUANDO ABRE O MODAL ---
+  useEffect(() => {
+    if (usuario && usuario.role === 'PROFISSIONAL') {
+        setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
+    }
+  }, [usuario, modalAberto]); // Roda sempre que o modal abre
+  // -------------------------------------------------
 
   const carregarDados = async (tenantId: string) => {
     try {
@@ -94,9 +96,15 @@ export default function AgendamentosPage() {
 
       if (res.ok) {
         alert('Agendamento realizado! 📅');
-        setNovoAgendamento(prev => ({ ...prev, nomeCliente: '', telefoneCliente: '', serviceId: '' }));
+        // Limpa o formulário mantendo o ID se for profissional
+        setNovoAgendamento({ 
+            nomeCliente: '', 
+            telefoneCliente: '', 
+            serviceId: '', 
+            professionalId: usuario.role === 'PROFISSIONAL' ? usuario.id : ''
+        });
         setDataSelecionada(''); setHorarioSelecionado('');
-        setModalAberto(false); // Fecha modal
+        setModalAberto(false);
         carregarDados(usuario.tenant.id);
       } else { 
         const erro = await res.json();
@@ -125,16 +133,11 @@ export default function AgendamentosPage() {
     if (cli) setNovoAgendamento(prev => ({ ...prev, nomeCliente: val, telefoneCliente: cli.telefone }));
   };
 
-  // --- LÓGICA DE AGRUPAMENTO ---
+  // Lógica de Agrupamento
   const getListaFiltrada = () => {
     return agendamentos.filter(a => {
-        if (abaAtiva === 'proximos') {
-            // Mostra Confirmados futuros ou de hoje
-            return a.status === 'CONFIRMADO';
-        } else {
-            // Mostra Histórico (Cancelados e Concluídos)
-            return a.status === 'CANCELADO' || a.status === 'CONCLUIDO';
-        }
+        if (abaAtiva === 'proximos') return a.status === 'CONFIRMADO';
+        else return a.status === 'CANCELADO' || a.status === 'CONCLUIDO';
     });
   };
 
@@ -151,27 +154,43 @@ export default function AgendamentosPage() {
   const listaAgrupada = agruparPorData(getListaFiltrada());
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-20 md:pb-8"> {/* Padding bottom pro menu mobile */}
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-8">
       
-      {/* Cabeçalho Fixo Mobile-Like */}
-      <div className="bg-white shadow-sm sticky top-0 z-20 px-4 py-3 flex justify-between items-center md:hidden">
-         <h1 className="text-lg font-bold text-indigo-600">Agenda</h1>
-         <button onClick={() => router.push('/dashboard')} className="text-gray-500 text-sm">Voltar</button>
+      {/* Cabeçalho Responsivo (Mobile / Desktop) */}
+      <div className="bg-white shadow-sm sticky top-0 z-20 px-6 py-4 flex justify-between items-center">
+         <div className="flex items-center gap-4">
+             {/* Botão Voltar */}
+             <button onClick={() => router.push('/dashboard')} className="text-gray-500 hover:text-indigo-600 font-medium flex items-center gap-1">
+                ← Voltar
+             </button>
+             <h1 className="text-xl font-bold text-gray-800 hidden md:block">Agenda Inteligente</h1>
+         </div>
+
+         {/* Botão Desktop (Aparece só no PC) */}
+         <button 
+            onClick={() => setModalAberto(true)}
+            className="hidden md:block bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+         >
+            + Novo Agendamento
+         </button>
+
+         {/* Título Mobile (Aparece só no Celular) */}
+         <h1 className="text-lg font-bold text-gray-800 md:hidden">Agenda</h1>
       </div>
 
-      <div className="max-w-4xl mx-auto p-4">
+      <div className="max-w-5xl mx-auto p-4 md:p-6">
         
         {/* ABAS DE NAVEGAÇÃO */}
-        <div className="flex bg-gray-200 p-1 rounded-lg mb-6">
+        <div className="flex bg-white p-1 rounded-xl shadow-sm mb-8 border border-gray-200 max-w-md mx-auto md:mx-0">
             <button 
                 onClick={() => setAbaAtiva('proximos')}
-                className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${abaAtiva === 'proximos' ? 'bg-white text-indigo-600 shadow' : 'text-gray-500'}`}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${abaAtiva === 'proximos' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-50'}`}
             >
                 📅 Próximos
             </button>
             <button 
                 onClick={() => setAbaAtiva('historico')}
-                className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${abaAtiva === 'historico' ? 'bg-white text-indigo-600 shadow' : 'text-gray-500'}`}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${abaAtiva === 'historico' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-50'}`}
             >
                 📜 Histórico
             </button>
@@ -179,11 +198,11 @@ export default function AgendamentosPage() {
 
         {/* LISTA DE AGENDAMENTOS */}
         {loading ? <p className="text-center p-10 text-gray-500">Carregando agenda...</p> : (
-            <div className="space-y-6">
+            <div className="space-y-8">
                 {Object.keys(listaAgrupada).length === 0 && (
-                    <div className="text-center py-10 text-gray-400">
-                        <p className="text-4xl mb-2">📭</p>
-                        <p>Nenhum agendamento nesta aba.</p>
+                    <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+                        <p className="text-4xl mb-2">📅</p>
+                        <p className="text-gray-500">Nenhum agendamento encontrado nesta aba.</p>
                     </div>
                 )}
 
@@ -195,29 +214,36 @@ export default function AgendamentosPage() {
 
                     return (
                         <div key={dataKey}>
-                            <h3 className="text-sm font-bold text-gray-500 uppercase mb-2 ml-1">{labelDia}</h3>
-                            <div className="space-y-3">
+                            <h3 className="text-sm font-bold text-gray-500 uppercase mb-3 ml-1 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-indigo-400"></span> {labelDia}
+                            </h3>
+                            
+                            {/* Grid Responsivo: 1 coluna no celular, 2 no PC */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {listaAgrupada[dataKey].map((ag: any) => (
-                                    <div key={ag.id} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-indigo-500 flex justify-between items-center">
+                                    <div key={ag.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-indigo-300 transition-colors flex justify-between items-center">
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-lg font-bold text-gray-800">
+                                                <span className="text-xl font-bold text-gray-800">
                                                     {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}
                                                 </span>
-                                                <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${ag.status === 'CONFIRMADO' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${ag.status === 'CONFIRMADO' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                                                     {ag.status}
                                                 </span>
                                             </div>
-                                            <p className="text-gray-700 font-medium mt-1">{ag.cliente.nome}</p>
-                                            <p className="text-xs text-gray-500">{ag.servico.nome} • com {ag.profissional.nome.split(' ')[0]}</p>
-                                            {ag.status === 'CANCELADO' && <p className="text-[10px] text-red-500 mt-1">Cancelado por: {ag.canceladoPor}</p>}
+                                            <p className="text-gray-800 font-medium mt-1 text-lg">{ag.cliente.nome}</p>
+                                            <p className="text-sm text-gray-500 flex items-center gap-1">
+                                                💅 {ag.servico.nome} 
+                                                <span className="text-gray-300">|</span> 
+                                                👤 {ag.profissional.nome.split(' ')[0]}
+                                            </p>
+                                            {ag.status === 'CANCELADO' && <p className="text-[10px] text-red-500 mt-1 font-bold">Cancelado por: {ag.canceladoPor}</p>}
                                         </div>
                                         
-                                        {/* Ações Rápidas */}
                                         {ag.status === 'CONFIRMADO' && (
                                             <button 
                                                 onClick={() => handleCancel(ag.id)}
-                                                className="bg-red-50 text-red-600 p-2 rounded-full hover:bg-red-100 transition"
+                                                className="bg-white border border-red-200 text-red-500 p-2 rounded-lg hover:bg-red-50 transition shadow-sm"
                                                 title="Cancelar"
                                             >
                                                 ✕
@@ -233,11 +259,11 @@ export default function AgendamentosPage() {
         )}
       </div>
 
-      {/* BOTÃO FLUTUANTE (FAB) - SÓ APARECE NA ABA PRÓXIMOS */}
+      {/* BOTÃO FLUTUANTE (FAB) - APENAS MOBILE */}
       {abaAtiva === 'proximos' && (
           <button 
             onClick={() => setModalAberto(true)}
-            className="fixed bottom-20 right-6 md:bottom-10 md:right-10 bg-indigo-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-3xl hover:bg-indigo-700 transition-transform hover:scale-110 z-50"
+            className="md:hidden fixed bottom-20 right-6 bg-indigo-600 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-3xl hover:bg-indigo-700 transition-transform hover:scale-110 z-50"
           >
             +
           </button>
@@ -255,26 +281,26 @@ export default function AgendamentosPage() {
                 <form onSubmit={handleCreate} className="space-y-4">
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">Cliente</label>
-                        <input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50" value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar nome..." />
+                        <input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none" value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar nome..." />
                         <datalist id="lista-cli-modal">{clientes.map(c => <option key={c.id} value={c.nome} />)}</datalist>
                     </div>
                     
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">WhatsApp</label>
-                        <input required className="w-full mt-1 border rounded-lg p-3 bg-gray-50" value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} placeholder="11999..." />
+                        <input required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none" value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} placeholder="11999..." />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Serviço</label>
-                            <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50" value={novoAgendamento.serviceId} onChange={e => setNovoAgendamento({...novoAgendamento, serviceId: e.target.value})}>
+                            <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none" value={novoAgendamento.serviceId} onChange={e => setNovoAgendamento({...novoAgendamento, serviceId: e.target.value})}>
                                 <option value="">Selecione...</option>
                                 {servicos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Profissional</label>
-                            <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50" value={novoAgendamento.professionalId} onChange={e => setNovoAgendamento({...novoAgendamento, professionalId: e.target.value})}>
+                            <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none" value={novoAgendamento.professionalId} onChange={e => setNovoAgendamento({...novoAgendamento, professionalId: e.target.value})}>
                                 <option value="">Selecione...</option>
                                 {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                             </select>
@@ -284,18 +310,18 @@ export default function AgendamentosPage() {
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Data</label>
-                            <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50" value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} />
+                            <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none" value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Hora</label>
-                            <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50" value={horarioSelecionado} onChange={e => setHorarioSelecionado(e.target.value)}>
+                            <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none" value={horarioSelecionado} onChange={e => setHorarioSelecionado(e.target.value)}>
                                 <option value="">...</option>
                                 {horariosDisponiveis.map(h => <option key={h} value={h}>{h}</option>)}
                             </select>
                         </div>
                     </div>
 
-                    <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg mt-4">
+                    <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 shadow-lg mt-4 transition-transform active:scale-95">
                         Confirmar Agendamento
                     </button>
                 </form>
