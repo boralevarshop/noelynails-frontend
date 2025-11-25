@@ -8,7 +8,7 @@ export default function CadastroPage() {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     nomeSalao: '',
-    slug: '',
+    // Slug removido: agora é gerado automaticamente no backend
     nomeSeu: '',
     email: '',
     telefone: '',
@@ -35,9 +35,10 @@ export default function CadastroPage() {
 
       if (!res.ok) throw new Error(data.message || 'Erro ao cadastrar');
 
-      alert('Salão cadastrado com sucesso! 🎉');
-      // Aqui depois vamos redirecionar para o Login
-      // router.push('/login'); 
+      alert('Salão criado com sucesso! 🎉');
+      
+      // REDIRECIONAMENTO ATIVADO
+      router.push('/login'); 
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -53,7 +54,7 @@ export default function CadastroPage() {
             Crie sua conta
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Cadastre seu salão e comece a agendar
+            Cadastre seu salão e comece a agendar (7 Dias Grátis no Plano Supreme)
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -64,27 +65,14 @@ export default function CadastroPage() {
                 name="nomeSalao"
                 type="text"
                 required
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 placeholder="Ex: Studio Belleza"
                 onChange={handleChange}
               />
             </div>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700">Link do Salão (Slug)</label>
-              <div className="flex">
-                <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
-                  seuapp.com/
-                </span>
-                <input
-                  name="slug"
-                  type="text"
-                  required
-                  className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md border border-gray-300 text-gray-900 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="studio-belleza"
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
+            
+            {/* CAMPO SLUG REMOVIDO */}
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700">Seu Nome</label>
               <input
@@ -137,7 +125,7 @@ export default function CadastroPage() {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
-              {loading ? 'Cadastrando...' : 'Criar conta grátis'}
+              {loading ? 'Criando...' : 'Criar conta grátis'}
             </button>
           </div>
         </form>

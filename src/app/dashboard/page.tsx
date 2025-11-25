@@ -141,7 +141,6 @@ export default function Dashboard() {
                     {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
                   </strong>
                   <p className="truncate font-medium">{ag.cliente.nome}</p>
-                  {/* Só mostra o nome do profissional se estiver vendo "Todos" */}
                   {filtroId === 'todos' && (
                       <p className="text-[10px] uppercase tracking-wide mt-1">{ag.profissional.nome}</p>
                   )}
@@ -159,6 +158,10 @@ export default function Dashboard() {
 
   const isProfissional = usuario.role === 'PROFISSIONAL';
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
+
+  // --- NOVO: Link de Agendamento Público ---
+  const linkPublico = `agendar.devhenri.shop/${usuario.tenant.slug}`;
+  // -----------------------------------------
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -182,6 +185,11 @@ export default function Dashboard() {
             </div>
             
             <div className="flex items-center gap-3">
+              {/* Botão Admin */}
+              {usuario.role === 'ADMIN_GLOBAL' && (
+                <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black transition-colors shadow-sm">👑 ADMIN</button>
+              )}
+              <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200">💎</button>
               <button onClick={() => router.push('/dashboard/perfil')} className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors group">
                 <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 group-hover:bg-indigo-200">
                     {usuario.nome.charAt(0).toUpperCase()}
@@ -206,6 +214,27 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
+        {/* --- NOVO: CARD DE DIVULGAÇÃO (LINK PÚBLICO) --- */}
+        {/* Só aparece para Dono ou Admin */}
+        {isDono && (
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 mb-6 flex flex-col md:flex-row items-center justify-between text-white">
+                <div className="mb-3 md:mb-0 text-center md:text-left">
+                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
+                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
+                    <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
+                    <button 
+                        onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))}
+                        className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0"
+                    >
+                        Copiar
+                    </button>
+                </div>
+            </div>
+        )}
+        {/* ----------------------------------------------- */}
+
         {/* --- SELETOR DE VISÃO (FILTRO INTELIGENTE) --- */}
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-gray-800">
@@ -252,10 +281,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Coluna Esquerda: Agenda da Semana 
-                - Se for DONO: Ocupa 2 colunas (deixa 1 pro ranking)
-                - Se for PROFISSIONAL: Ocupa as 3 colunas (Tela cheia)
-            */}
+            {/* Coluna Esquerda: Agenda da Semana */}
             <div className={isDono ? "lg:col-span-2" : "lg:col-span-3"}>
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">
                    Agenda da Semana
