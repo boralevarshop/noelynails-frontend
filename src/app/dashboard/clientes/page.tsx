@@ -11,8 +11,12 @@ export default function ClientesPage() {
   const [loading, setLoading] = useState(true);
 
   // Estado para Edição
-  const [editando, setEditando] = useState<any>(null); // Se null, não está editando
+  const [editando, setEditando] = useState<any>(null);
   const [form, setForm] = useState({ nome: '', telefone: '', email: '' });
+
+  // --- NOVO: ESTADO DA BUSCA ---
+  const [busca, setBusca] = useState('');
+  // -----------------------------
 
   useEffect(() => {
     const dadosSalvos = localStorage.getItem('usuario_saas');
@@ -26,7 +30,6 @@ export default function ClientesPage() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       
-      // Busca Clientes E dados do Salão (Cores)
       const [resCli, resTenant] = await Promise.all([
         fetch(`${apiUrl}/clients/tenant/${tenantId}`),
         fetch(`${apiUrl}/tenants/${tenantId}`)
@@ -94,6 +97,13 @@ export default function ClientesPage() {
     } catch (error) { alert('Erro de conexão'); }
   };
 
+  // --- FILTRO INTELIGENTE ---
+  const clientesFiltrados = clientes.filter(cli => 
+    cli.nome.toLowerCase().includes(busca.toLowerCase()) || 
+    cli.telefone.includes(busca)
+  );
+  // --------------------------
+
   // Cores Dinâmicas
   const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant?.corSecundaria || '#F3F4F6';
@@ -140,10 +150,23 @@ export default function ClientesPage() {
 
           {/* Lista de Clientes */}
           <div className="md:col-span-2">
-            <h2 className="text-lg font-semibold mb-4">Carteira de Clientes ({clientes.length})</h2>
-            {loading ? <p>Carregando...</p> : clientes.length === 0 ? <p className="text-gray-500">Nenhum cliente cadastrado.</p> : (
+            <div className="flex justify-between items-end mb-4">
+                <h2 className="text-lg font-semibold">Carteira ({clientes.length})</h2>
+                
+                {/* CAMPO DE BUSCA */}
+                <input 
+                    type="text" 
+                    placeholder="🔍 Buscar nome ou telefone..." 
+                    className="border rounded-lg px-3 py-1.5 text-sm w-full max-w-xs outline-none focus:ring-2"
+                    style={{ '--tw-ring-color': corPrincipal } as any}
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                />
+            </div>
+
+            {loading ? <p>Carregando...</p> : clientesFiltrados.length === 0 ? <p className="text-gray-500 text-center py-10 bg-white rounded-lg border border-dashed">Nenhum cliente encontrado.</p> : (
               <ul className="space-y-3">
-                {clientes.map((cli) => (
+                {clientesFiltrados.map((cli) => (
                   <li 
                     key={cli.id} 
                     className="bg-white p-4 rounded-lg shadow flex justify-between items-center border-l-4"
