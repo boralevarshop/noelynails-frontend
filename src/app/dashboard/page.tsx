@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, isToday, isTomorrow, parseISO } from 'date-fns';
+import { format, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function Dashboard() {
@@ -13,17 +13,15 @@ export default function Dashboard() {
   // Dados
   const [todosAgendamentos, setTodosAgendamentos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
-  
-  // Filtros e Visualização
   const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<any[]>([]);
   const [filtroId, setFiltroId] = useState('');
-  const [mostrarValores, setMostrarValores] = useState(false); // Privacidade
+  const [mostrarValores, setMostrarValores] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ hoje: 0, faturamento: 0 });
   const [ranking, setRanking] = useState<any[]>([]);
 
-  // Estados para o Modal de Agendamento
+  // Estados para o Modal
   const [modalAberto, setModalAberto] = useState(false);
   const [servicos, setServicos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -56,8 +54,6 @@ export default function Dashboard() {
     }
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
-    
-    // Visão Inicial: Começa filtrado nele mesmo (seja dono ou profissional)
     setFiltroId(user.id); 
 
     fetchDados(user.tenant.id);
@@ -68,26 +64,16 @@ export default function Dashboard() {
     filtrarEstatistiscas();
   }, [filtroId, todosAgendamentos]);
 
-  // --- CORREÇÃO: PRÉ-SELEÇÃO INTELIGENTE ---
+  // Pré-seleção Correta
   useEffect(() => {
-    if (modalAberto && usuario && profissionais.length > 0) {
-        // Se o filtro atual for uma pessoa específica (não 'todos'), usa esse ID
-        if (filtroId && filtroId !== 'todos') {
-             setNovoAgendamento(prev => ({ ...prev, professionalId: filtroId }));
-        } 
-        // Se for profissional comum, força o ID dele mesmo que o filtro esteja bugado
-        else if (usuario.role === 'PROFISSIONAL') {
-             setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
-        }
-        // Se for Dono e estiver vendo 'Todos', deixa vazio pra ele escolher
+    if (modalAberto && usuario && usuario.role === 'PROFISSIONAL') {
+        setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
     }
-  }, [modalAberto, usuario, profissionais, filtroId]);
-  // -------------------------------------------
+  }, [modalAberto, usuario]);
 
   const fetchDados = async (tenantId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      
       const [resAgenda, resProf, resTenant] = await Promise.all([
         fetch(`${apiUrl}/appointments/tenant/${tenantId}`),
         fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
@@ -102,7 +88,6 @@ export default function Dashboard() {
       const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
       setTodosAgendamentos(ativos);
       setProfissionais(dadosProf);
-
     } catch (error) {
       console.error('Erro ao buscar dados', error);
     } finally {
@@ -176,11 +161,9 @@ export default function Dashboard() {
 
       if (res.ok) {
         alert('Agendamento realizado! 📅');
-        
-        // Limpa form e mantém ID se estiver filtrado
         setNovoAgendamento({ 
             nomeCliente: '', telefoneCliente: '', serviceId: '', 
-            professionalId: filtroId !== 'todos' ? filtroId : '' 
+            professionalId: usuario.role === 'PROFISSIONAL' ? usuario.id : '' 
         });
         setDataSelecionada(''); setHorarioSelecionado('');
         setModalAberto(false);
@@ -230,7 +213,6 @@ export default function Dashboard() {
 
   const isProfissional = usuario.role === 'PROFISSIONAL';
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
-  
   let planoLabel = null;
   if (tenant) {
       if (tenant.statusAssinatura === 'TRIAL') {
@@ -242,7 +224,6 @@ export default function Dashboard() {
           planoLabel = <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-bold">Plano {tenant.plano}</span>;
       }
   }
-  
   const linkPublico = usuario.tenant?.slug ? `agendar.devhenri.shop/${usuario.tenant.slug}` : '';
 
   const IconEyeOpen = () => (
@@ -297,20 +278,7 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
-        {/* Link Público (MOVIDO PARA CÁ) */}
-        {isDono && (
-            <div className="mt-4 mb-6 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white order-last md:order-first">
-                <div className="mb-3 md:mb-0 text-center md:text-left">
-                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
-                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
-                </div>
-                <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
-                    <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
-                    <button onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))} className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0">Copiar</button>
-                </div>
-            </div>
-        )}
-
+        {/* Topo: Filtro e Botão */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <div className="flex items-center gap-3 w-full md:w-auto">
                 <h2 className="text-lg font-bold text-gray-800 whitespace-nowrap">
@@ -335,19 +303,14 @@ export default function Dashboard() {
           </div>
           <div className="bg-white overflow-hidden shadow rounded-lg p-5 relative">
             <div className="flex justify-between items-start">
-                <dt className="text-sm font-medium text-gray-500 truncate">
-                    {filtroId === 'todos' ? 'Faturamento (Mês)' : 'Meu Faturamento (Mês)'}
-                </dt>
-                <button onClick={() => setMostrarValores(!mostrarValores)} className="text-gray-400 hover:text-indigo-600 transition">
-                    {mostrarValores ? <IconEyeOpen /> : <IconEyeClosed />}
-                </button>
+                <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Faturamento (Mês)' : 'Meu Faturamento (Mês)'}</dt>
+                <button onClick={() => setMostrarValores(!mostrarValores)} className="text-gray-400 hover:text-indigo-600 transition">{mostrarValores ? <IconEyeOpen /> : <IconEyeClosed />}</button>
             </div>
-            <dd className="mt-1 text-3xl font-semibold text-green-600">
-                {mostrarValores ? `R$ ${stats.faturamento.toFixed(2)}` : 'R$ ••••'}
-            </dd>
+            <dd className="mt-1 text-3xl font-semibold text-green-600">{mostrarValores ? `R$ ${stats.faturamento.toFixed(2)}` : 'R$ ••••'}</dd>
           </div>
         </div>
 
+        {/* Agenda e Ranking */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className={isDono ? "lg:col-span-2" : "lg:col-span-3"}>
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">Agenda da Semana</h2>
@@ -361,9 +324,7 @@ export default function Dashboard() {
                             {ranking.map((prof, index) => (
                                 <li key={index} className={`p-4 flex items-center justify-between ${prof.nome === usuario?.nome ? 'bg-indigo-50' : ''}`}>
                                     <div className="flex items-center"><span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 mr-3">{prof.nome.charAt(0)}</span><div><p className="text-sm font-medium text-gray-900">{prof.nome}</p><p className="text-xs text-gray-500">{prof.qtd} agendamentos</p></div></div>
-                                    <div className="text-sm font-bold text-green-600">
-                                        {mostrarValores ? `R$ ${prof.total.toFixed(2)}` : 'R$ ••••'}
-                                    </div>
+                                    <div className="text-sm font-bold text-green-600">{mostrarValores ? `R$ ${prof.total.toFixed(2)}` : 'R$ ••••'}</div>
                                 </li>
                             ))}
                         </ul>
@@ -372,7 +333,21 @@ export default function Dashboard() {
             )}
         </div>
 
-        {/* MODAL DE NOVO AGENDAMENTO */}
+        {/* Link Público (Sempre no final) */}
+        {isDono && (
+            <div className="mt-10 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white">
+                <div className="mb-3 md:mb-0 text-center md:text-left">
+                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
+                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
+                    <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
+                    <button onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))} className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0">Copiar</button>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
