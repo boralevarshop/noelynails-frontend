@@ -13,6 +13,8 @@ export default function Dashboard() {
   // Dados
   const [todosAgendamentos, setTodosAgendamentos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
+  
+  // Filtros e Visualização
   const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<any[]>([]);
   const [filtroId, setFiltroId] = useState('');
   const [mostrarValores, setMostrarValores] = useState(false);
@@ -21,7 +23,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ hoje: 0, faturamento: 0 });
   const [ranking, setRanking] = useState<any[]>([]);
 
-  // Estados para o Modal
+  // Estados para o Modal de Agendamento
   const [modalAberto, setModalAberto] = useState(false);
   const [servicos, setServicos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -54,6 +56,8 @@ export default function Dashboard() {
     }
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
+    
+    // Visão Inicial: Começa filtrado nele mesmo
     setFiltroId(user.id); 
 
     fetchDados(user.tenant.id);
@@ -64,16 +68,29 @@ export default function Dashboard() {
     filtrarEstatistiscas();
   }, [filtroId, todosAgendamentos]);
 
-  // Pré-seleção Correta
+  // --- CORREÇÃO: LÓGICA DE PRÉ-SELEÇÃO ROBUSTA ---
   useEffect(() => {
-    if (modalAberto && usuario && usuario.role === 'PROFISSIONAL') {
-        setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
+    if (modalAberto && usuario) {
+        // 1. Se for Profissional, sempre trava nele
+        if (usuario.role === 'PROFISSIONAL') {
+            setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
+        } 
+        // 2. Se for Dono, respeita o filtro que ele escolheu na tela
+        else if (filtroId && filtroId !== 'todos') {
+            setNovoAgendamento(prev => ({ ...prev, professionalId: filtroId }));
+        }
+        // 3. Se for Dono e estiver vendo "Todos", limpa para ele escolher
+        else {
+            setNovoAgendamento(prev => ({ ...prev, professionalId: '' }));
+        }
     }
-  }, [modalAberto, usuario]);
+  }, [modalAberto, usuario, filtroId]);
+  // -----------------------------------------------
 
   const fetchDados = async (tenantId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      
       const [resAgenda, resProf, resTenant] = await Promise.all([
         fetch(`${apiUrl}/appointments/tenant/${tenantId}`),
         fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
@@ -85,9 +102,12 @@ export default function Dashboard() {
       const dadosTenant = await resTenant.json();
 
       setTenant(dadosTenant);
+      
       const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
+      
       setTodosAgendamentos(ativos);
       setProfissionais(dadosProf);
+
     } catch (error) {
       console.error('Erro ao buscar dados', error);
     } finally {
@@ -109,28 +129,41 @@ export default function Dashboard() {
 
   const filtrarEstatistiscas = () => {
     if (!filtroId) return;
+
     let lista = todosAgendamentos;
+    
     if (filtroId !== 'todos') {
         lista = todosAgendamentos.filter(ag => ag.profissional.id === filtroId);
     }
+
     setAgendamentosFiltrados(lista);
 
     const hoje = new Date().toISOString().split('T')[0];
     const agendamentosHoje = lista.filter((a: any) => a.dataHora.startsWith(hoje));
-    const totalMes = lista.reduce((acc: number, curr: any) => acc + Number(curr.servico.preco), 0);
+    
+    const totalMes = lista.reduce((acc: number, curr: any) => {
+      return acc + Number(curr.servico.preco);
+    }, 0);
 
-    setStats({ hoje: agendamentosHoje.length, faturamento: totalMes });
+    setStats({
+      hoje: agendamentosHoje.length,
+      faturamento: totalMes
+    });
 
+    // Ranking
     const agrupado: any = {};
     todosAgendamentos.forEach((ag: any) => {
       const nome = ag.profissional.nome;
-      if (!agrupado[nome]) agrupado[nome] = { qtd: 0, total: 0 };
+      if (!agrupado[nome]) {
+          agrupado[nome] = { qtd: 0, total: 0 };
+      }
       agrupado[nome].qtd += 1;
       agrupado[nome].total += Number(ag.servico.preco);
     });
 
     const rankingArray = Object.keys(agrupado).map(key => ({
-      nome: key, ...agrupado[key]
+      nome: key,
+      ...agrupado[key]
     })).sort((a, b) => b.total - a.total);
 
     setRanking(rankingArray);
@@ -161,10 +194,14 @@ export default function Dashboard() {
 
       if (res.ok) {
         alert('Agendamento realizado! 📅');
+        // Reseta form mas mantém profissional se for o caso
+        const manterProfissional = (usuario.role === 'PROFISSIONAL' || (filtroId && filtroId !== 'todos')) ? novoAgendamento.professionalId : '';
+        
         setNovoAgendamento({ 
             nomeCliente: '', telefoneCliente: '', serviceId: '', 
-            professionalId: usuario.role === 'PROFISSIONAL' ? usuario.id : '' 
+            professionalId: manterProfissional 
         });
+        
         setDataSelecionada(''); setHorarioSelecionado('');
         setModalAberto(false);
         fetchDados(usuario.tenant.id);
@@ -217,11 +254,11 @@ export default function Dashboard() {
   if (tenant) {
       if (tenant.statusAssinatura === 'TRIAL') {
           const dias = Math.ceil((new Date(tenant.trialFim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-          planoLabel = <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold border border-green-300 shadow-sm animate-pulse">💎 Teste Grátis: {dias} dias</span>;
+          planoLabel = <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold border border-green-300 shadow-sm animate-pulse">💎 Teste: {dias} dias</span>;
       } else if (tenant.plano === 'FREE') {
           planoLabel = <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Plano Free</span>;
       } else {
-          planoLabel = <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-bold">Plano {tenant.plano}</span>;
+          planoLabel = <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-bold">{tenant.plano}</span>;
       }
   }
   const linkPublico = usuario.tenant?.slug ? `agendar.devhenri.shop/${usuario.tenant.slug}` : '';
@@ -278,7 +315,7 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
-        {/* Topo: Filtro e Botão */}
+        {/* Filtro e Botão */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <div className="flex items-center gap-3 w-full md:w-auto">
                 <h2 className="text-lg font-bold text-gray-800 whitespace-nowrap">
@@ -310,12 +347,12 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Agenda e Ranking */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className={isDono ? "lg:col-span-2" : "lg:col-span-3"}>
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">Agenda da Semana</h2>
                 {loading ? <p>Carregando...</p> : <div className={isDono ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"}>{renderAgendaSemana()}</div>}
             </div>
+            
             {isDono && (
                 <div>
                     <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
@@ -333,7 +370,7 @@ export default function Dashboard() {
             )}
         </div>
 
-        {/* Link Público (Sempre no final) */}
+        {/* --- LINK PÚBLICO (NO FINAL) --- */}
         {isDono && (
             <div className="mt-10 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white">
                 <div className="mb-3 md:mb-0 text-center md:text-left">
@@ -346,8 +383,9 @@ export default function Dashboard() {
                 </div>
             </div>
         )}
+        {/* ----------------------------- */}
 
-        {/* MODAL */}
+        {/* MODAL NOVO AGENDAMENTO */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
