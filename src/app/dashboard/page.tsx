@@ -141,6 +141,7 @@ export default function Dashboard() {
                     {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
                   </strong>
                   <p className="truncate font-medium">{ag.cliente.nome}</p>
+                  {/* Só mostra o nome do profissional se estiver vendo "Todos" */}
                   {filtroId === 'todos' && (
                       <p className="text-[10px] uppercase tracking-wide mt-1">{ag.profissional.nome}</p>
                   )}
@@ -166,7 +167,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-4">
-              <h1 className="text-xl font-bold text-indigo-600 truncate max-w-[100px] md:max-w-none">
+              <h1 className="text-xl font-bold text-indigo-600 truncate max-w-[120px] md:max-w-none">
                 {usuario.tenant.nome}
               </h1>
               
@@ -177,22 +178,10 @@ export default function Dashboard() {
                 <button onClick={() => router.push('/dashboard/servicos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Serviços</button>
                 <button onClick={() => router.push('/dashboard/profissionais')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Equipe</button>
                 <button onClick={() => router.push('/dashboard/clientes')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Clientes</button>
-                <button onClick={() => router.push('/dashboard/bloqueios')} className="text-red-600 hover:bg-red-50 px-3 py-2 rounded-md text-sm font-medium">Bloqueios</button>
               </div>
             </div>
             
             <div className="flex items-center gap-3">
-              
-              {/* BOTÃO DE VOLTAR PRO ADMIN (Só aparece se for Admin Global) */}
-              {usuario.role === 'ADMIN_GLOBAL' && (
-                <button 
-                  onClick={() => router.push('/admin')}
-                  className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black transition-colors shadow-sm"
-                >
-                  👑 VOLTAR AO ADMIN
-                </button>
-              )}
-
               <button onClick={() => router.push('/dashboard/perfil')} className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors group">
                 <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 group-hover:bg-indigo-200">
                     {usuario.nome.charAt(0).toUpperCase()}
@@ -203,16 +192,14 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-
-        {/* MENU MOBILE (Agora com 6 colunas para caber o Bloqueios) */}
+        {/* Menu Mobile */}
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
-          <div className="grid grid-cols-6 divide-x divide-gray-200">
+          <div className="grid grid-cols-5 divide-x divide-gray-200">
             <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium text-indigo-600 hover:bg-gray-100 flex flex-col items-center"><span>📅</span> Agenda</button>
             <button onClick={() => router.push('/dashboard/calendario')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>🗓️</span> Mês</button>
             <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>💅</span> Serv</button>
             <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>👥</span> Eqp</button>
             <button onClick={() => router.push('/dashboard/clientes')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>👩</span> Cli</button>
-            <button onClick={() => router.push('/dashboard/bloqueios')} className="py-3 text-[10px] font-medium text-red-600 hover:bg-red-50 flex flex-col items-center"><span>⛔</span> Bloq</button>
           </div>
         </div>
       </nav>
@@ -265,13 +252,16 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Coluna Esquerda: Agenda da Semana */}
+            {/* Coluna Esquerda: Agenda da Semana 
+                - Se for DONO: Ocupa 2 colunas (deixa 1 pro ranking)
+                - Se for PROFISSIONAL: Ocupa as 3 colunas (Tela cheia)
+            */}
             <div className={isDono ? "lg:col-span-2" : "lg:col-span-3"}>
                 <h2 className="text-lg font-semibold text-gray-800 mb-4">
                    Agenda da Semana
                 </h2>
                 {loading ? <p>Carregando...</p> : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className={isDono ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"}>
                         {renderAgendaSemana()}
                     </div>
                 )}
