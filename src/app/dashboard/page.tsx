@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, isToday, isTomorrow } from 'date-fns';
+import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function Dashboard() {
@@ -14,16 +14,16 @@ export default function Dashboard() {
   const [todosAgendamentos, setTodosAgendamentos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
   
-  // Filtros
+  // Filtros e Visualização
   const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<any[]>([]);
   const [filtroId, setFiltroId] = useState('');
-  const [mostrarValores, setMostrarValores] = useState(false);
+  const [mostrarValores, setMostrarValores] = useState(false); // Privacidade
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ hoje: 0, faturamento: 0 });
   const [ranking, setRanking] = useState<any[]>([]);
 
-  // Estados para o Modal
+  // Estados para o Modal de Agendamento
   const [modalAberto, setModalAberto] = useState(false);
   const [servicos, setServicos] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -56,6 +56,8 @@ export default function Dashboard() {
     }
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
+    
+    // Visão Inicial: Começa filtrado nele mesmo (seja dono ou profissional)
     setFiltroId(user.id); 
 
     fetchDados(user.tenant.id);
@@ -66,14 +68,21 @@ export default function Dashboard() {
     filtrarEstatistiscas();
   }, [filtroId, todosAgendamentos]);
 
-  // --- CORREÇÃO: PRÉ-SELEÇÃO IGUAL A PÁGINA DE AGENDAMENTOS ---
+  // --- CORREÇÃO: PRÉ-SELEÇÃO INTELIGENTE ---
   useEffect(() => {
-    // Só roda se o modal estiver aberto e tivermos a lista de profissionais carregada
-    if (modalAberto && usuario && usuario.role === 'PROFISSIONAL' && profissionais.length > 0) {
-        setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
+    if (modalAberto && usuario && profissionais.length > 0) {
+        // Se o filtro atual for uma pessoa específica (não 'todos'), usa esse ID
+        if (filtroId && filtroId !== 'todos') {
+             setNovoAgendamento(prev => ({ ...prev, professionalId: filtroId }));
+        } 
+        // Se for profissional comum, força o ID dele mesmo que o filtro esteja bugado
+        else if (usuario.role === 'PROFISSIONAL') {
+             setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
+        }
+        // Se for Dono e estiver vendo 'Todos', deixa vazio pra ele escolher
     }
-  }, [modalAberto, usuario, profissionais]);
-  // -----------------------------------------------------------
+  }, [modalAberto, usuario, profissionais, filtroId]);
+  // -------------------------------------------
 
   const fetchDados = async (tenantId: string) => {
     try {
@@ -167,10 +176,11 @@ export default function Dashboard() {
 
       if (res.ok) {
         alert('Agendamento realizado! 📅');
-        // Mantém ID se for profissional
+        
+        // Limpa form e mantém ID se estiver filtrado
         setNovoAgendamento({ 
             nomeCliente: '', telefoneCliente: '', serviceId: '', 
-            professionalId: usuario.role === 'PROFISSIONAL' ? usuario.id : '' 
+            professionalId: filtroId !== 'todos' ? filtroId : '' 
         });
         setDataSelecionada(''); setHorarioSelecionado('');
         setModalAberto(false);
@@ -220,21 +230,21 @@ export default function Dashboard() {
 
   const isProfissional = usuario.role === 'PROFISSIONAL';
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
+  
   let planoLabel = null;
   if (tenant) {
       if (tenant.statusAssinatura === 'TRIAL') {
           const dias = Math.ceil((new Date(tenant.trialFim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-          planoLabel = <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold border border-green-300 shadow-sm animate-pulse">💎 Teste: {dias} dias</span>;
+          planoLabel = <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold border border-green-300 shadow-sm animate-pulse">💎 Teste Grátis: {dias} dias</span>;
       } else if (tenant.plano === 'FREE') {
-          planoLabel = <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Free</span>;
+          planoLabel = <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Plano Free</span>;
       } else {
-          planoLabel = <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-bold">{tenant.plano}</span>;
+          planoLabel = <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-bold">Plano {tenant.plano}</span>;
       }
   }
   
   const linkPublico = usuario.tenant?.slug ? `agendar.devhenri.shop/${usuario.tenant.slug}` : '';
 
-  // Ícones
   const IconEyeOpen = () => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
       <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
@@ -287,7 +297,20 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
-        {/* Filtro e Botão de Agendamento */}
+        {/* Link Público (MOVIDO PARA CÁ) */}
+        {isDono && (
+            <div className="mt-4 mb-6 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white order-last md:order-first">
+                <div className="mb-3 md:mb-0 text-center md:text-left">
+                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
+                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
+                    <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
+                    <button onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))} className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0">Copiar</button>
+                </div>
+            </div>
+        )}
+
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <div className="flex items-center gap-3 w-full md:w-auto">
                 <h2 className="text-lg font-bold text-gray-800 whitespace-nowrap">
@@ -349,21 +372,7 @@ export default function Dashboard() {
             )}
         </div>
 
-        {/* Link Público (MOVIDO PARA CÁ) */}
-        {isDono && (
-            <div className="mt-10 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white">
-                <div className="mb-3 md:mb-0 text-center md:text-left">
-                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
-                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
-                </div>
-                <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
-                    <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
-                    <button onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))} className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0">Copiar</button>
-                </div>
-            </div>
-        )}
-
-        {/* MODAL */}
+        {/* MODAL DE NOVO AGENDAMENTO */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
