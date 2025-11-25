@@ -10,7 +10,10 @@ export default function ServicosPage() {
   const [usuario, setUsuario] = useState<any>(null);
   const [tenant, setTenant] = useState<any>(null); // CORES
 
-  const [novoServico, setNovoServico] = useState({
+  // --- ESTADO DE EDIÇÃO ---
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+
+  const [form, setForm] = useState({
     nome: '',
     preco: '',
     duracaoMin: '30',
@@ -36,8 +39,7 @@ export default function ServicosPage() {
       
       if (resServ.ok) {
         const data = await resServ.json();
-        if (Array.isArray(data)) setServices(data);
-        else setServices([]);
+        setServices(Array.isArray(data) ? data : []);
       }
       
       if (resTenant.ok) {
@@ -51,33 +53,59 @@ export default function ServicosPage() {
     finally { setLoading(false); }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!usuario) return;
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const res = await fetch(`${apiUrl}/services`, {
-        method: 'POST',
+      
+      // Se tiver editando, usa a URL com ID e método PATCH. Se não, usa POST.
+      const url = editandoId ? `${apiUrl}/services/${editandoId}` : `${apiUrl}/services`;
+      const method = editandoId ? 'PATCH' : 'POST';
+
+      const res = await fetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...novoServico,
-          preco: parseFloat(novoServico.preco),
-          duracaoMin: parseInt(novoServico.duracaoMin),
-          diasRetorno: parseInt(novoServico.diasRetorno),
+          ...form,
+          preco: parseFloat(form.preco),
+          duracaoMin: parseInt(form.duracaoMin),
+          diasRetorno: parseInt(form.diasRetorno),
           tenantId: usuario.tenant.id
         })
       });
 
       if (res.ok) {
-        alert('Serviço criado!');
-        setNovoServico({ nome: '', preco: '', duracaoMin: '30', diasRetorno: '30' });
+        alert(editandoId ? 'Serviço atualizado!' : 'Serviço criado!');
+        // Limpa formulário e sai do modo edição
+        setForm({ nome: '', preco: '', duracaoMin: '30', diasRetorno: '30' });
+        setEditandoId(null);
         fetchServices(usuario.tenant.id);
       } else {
         alert('Erro ao salvar. Verifique os dados.');
       }
     } catch (error) { alert('Erro de conexão'); }
   };
+
+  // --- FUNÇÃO PARA PREENCHER O FORMULÁRIO ---
+  const iniciarEdicao = (servico: any) => {
+      setEditandoId(servico.id);
+      setForm({
+          nome: servico.nome,
+          preco: servico.preco,
+          duracaoMin: servico.duracaoMin,
+          diasRetorno: servico.diasRetorno
+      });
+      // Rola a página para o topo suavemente
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelarEdicao = () => {
+      setEditandoId(null);
+      setForm({ nome: '', preco: '', duracaoMin: '30', diasRetorno: '30' });
+  };
+  // -----------------------------------------
 
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza?')) return;
@@ -103,29 +131,42 @@ export default function ServicosPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           
           <div className="bg-white p-6 rounded-lg shadow h-fit">
-            <h2 className="text-lg font-semibold mb-4" style={{ color: corPrincipal }}>Novo Serviço</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
+            <h2 className="text-lg font-semibold mb-4" style={{ color: corPrincipal }}>
+                {editandoId ? 'Editar Serviço' : 'Novo Serviço'}
+            </h2>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Nome</label>
-                <input type="text" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} placeholder="Ex: Progressiva" value={novoServico.nome} onChange={e => setNovoServico({...novoServico, nome: e.target.value})} />
+                <input type="text" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} placeholder="Ex: Progressiva" value={form.nome} onChange={e => setForm({...form, nome: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Preço (R$)</label>
-                <input type="number" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} placeholder="0.00" value={novoServico.preco} onChange={e => setNovoServico({...novoServico, preco: e.target.value})} />
+                <input type="number" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} placeholder="0.00" value={form.preco} onChange={e => setForm({...form, preco: e.target.value})} />
               </div>
               
               <div className="grid grid-cols-2 gap-3">
                 <div>
                     <label className="block text-xs font-medium text-gray-700">Duração (min)</label>
-                    <input type="number" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoServico.duracaoMin} onChange={e => setNovoServico({...novoServico, duracaoMin: e.target.value})} />
+                    <input type="number" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={form.duracaoMin} onChange={e => setForm({...form, duracaoMin: e.target.value})} />
                 </div>
                 <div>
                     <label className="block text-xs font-medium font-bold" style={{ color: corPrincipal }}>Retorno (dias)</label>
-                    <input type="number" required className="mt-1 block w-full rounded-md border shadow-sm border p-2 bg-gray-50 outline-none focus:ring-2" style={{ borderColor: corPrincipal, '--tw-ring-color': corPrincipal } as any} value={novoServico.diasRetorno} onChange={e => setNovoServico({...novoServico, diasRetorno: e.target.value})} />
+                    <input type="number" required className="mt-1 block w-full rounded-md border shadow-sm border p-2 bg-gray-50 outline-none focus:ring-2" style={{ borderColor: corPrincipal, '--tw-ring-color': corPrincipal } as any} value={form.diasRetorno} onChange={e => setForm({...form, diasRetorno: e.target.value})} />
                 </div>
               </div>
 
-              <button type="submit" className="w-full text-white py-2 px-4 rounded font-bold hover:opacity-90 transition-opacity" style={{ backgroundColor: corPrincipal }}>Salvar Serviço</button>
+              <div className="flex gap-2">
+                  <button type="submit" className="w-full text-white py-2 px-4 rounded font-bold hover:opacity-90 transition-opacity" style={{ backgroundColor: corPrincipal }}>
+                      {editandoId ? 'Atualizar' : 'Salvar'}
+                  </button>
+
+                  {editandoId && (
+                      <button type="button" onClick={cancelarEdicao} className="w-full bg-gray-200 text-gray-700 py-2 px-4 rounded font-bold hover:bg-gray-300 transition-colors">
+                          Cancelar
+                      </button>
+                  )}
+              </div>
             </form>
           </div>
 
@@ -134,7 +175,11 @@ export default function ServicosPage() {
             {loading ? <p>Carregando...</p> : services.length === 0 ? <p className="text-gray-500">Nenhum serviço cadastrado.</p> : (
               <ul className="space-y-3">
                 {services.map((service) => (
-                  <li key={service.id} className="bg-white p-4 rounded-lg shadow flex justify-between items-center border-l-4" style={{ borderLeftColor: corPrincipal }}>
+                  <li 
+                    key={service.id} 
+                    className={`bg-white p-4 rounded-lg shadow flex justify-between items-center border-l-4 ${editandoId === service.id ? 'bg-gray-50 ring-2 ring-offset-2' : ''}`} 
+                    style={{ borderLeftColor: corPrincipal, '--tw-ring-color': corPrincipal } as any}
+                  >
                     <div>
                       <h3 className="font-bold text-gray-800">{service.nome}</h3>
                       <p className="text-sm text-gray-500">
@@ -144,7 +189,19 @@ export default function ServicosPage() {
                         🔄 Retorno sugerido: {service.diasRetorno || 30} dias
                       </p>
                     </div>
-                    <button onClick={() => handleDelete(service.id)} className="text-red-500 hover:text-red-700 text-sm font-semibold bg-red-50 px-3 py-1 rounded">Excluir</button>
+                    
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => iniciarEdicao(service)} 
+                            className="text-sm font-bold hover:opacity-70"
+                            style={{ color: corPrincipal }}
+                        >
+                            Editar
+                        </button>
+                        <button onClick={() => handleDelete(service.id)} className="text-red-500 hover:text-red-700 text-sm font-semibold ml-2">
+                            Excluir
+                        </button>
+                    </div>
                   </li>
                 ))}
               </ul>
