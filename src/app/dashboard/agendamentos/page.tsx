@@ -48,13 +48,12 @@ export default function AgendamentosPage() {
     carregarDados(user.tenant.id);
   }, []);
 
-  // --- CORREÇÃO: PRÉ-SELEÇÃO QUANDO ABRE O MODAL ---
+  // Pré-seleção do profissional logado
   useEffect(() => {
     if (usuario && usuario.role === 'PROFISSIONAL') {
         setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
     }
-  }, [usuario, modalAberto]); // Roda sempre que o modal abre
-  // -------------------------------------------------
+  }, [usuario, modalAberto]);
 
   const carregarDados = async (tenantId: string) => {
     try {
@@ -96,7 +95,6 @@ export default function AgendamentosPage() {
 
       if (res.ok) {
         alert('Agendamento realizado! 📅');
-        // Limpa o formulário mantendo o ID se for profissional
         setNovoAgendamento({ 
             nomeCliente: '', 
             telefoneCliente: '', 
@@ -154,34 +152,30 @@ export default function AgendamentosPage() {
   const listaAgrupada = agruparPorData(getListaFiltrada());
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 md:pb-8">
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-8 p-4 md:p-8">
       
-      {/* Cabeçalho Responsivo (Mobile / Desktop) */}
-      <div className="bg-white shadow-sm sticky top-0 z-20 px-6 py-4 flex justify-between items-center">
-         <div className="flex items-center gap-4">
-             {/* Botão Voltar */}
-             <button onClick={() => router.push('/dashboard')} className="text-gray-500 hover:text-indigo-600 font-medium flex items-center gap-1">
-                ← Voltar
-             </button>
-             <h1 className="text-xl font-bold text-gray-800 hidden md:block">Agenda Inteligente</h1>
-         </div>
-
-         {/* Botão Desktop (Aparece só no PC) */}
-         <button 
-            onClick={() => setModalAberto(true)}
-            className="hidden md:block bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-         >
-            + Novo Agendamento
-         </button>
-
-         {/* Título Mobile (Aparece só no Celular) */}
-         <h1 className="text-lg font-bold text-gray-800 md:hidden">Agenda</h1>
-      </div>
-
-      <div className="max-w-5xl mx-auto p-4 md:p-6">
+      <div className="max-w-5xl mx-auto">
         
+        {/* --- CABEÇALHO PADRONIZADO --- */}
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Agenda Inteligente</h1>
+          <button onClick={() => router.push('/dashboard')} className="text-gray-600 hover:text-gray-900">
+            ← Voltar ao Painel
+          </button>
+        </div>
+
+        {/* --- BOTÃO NOVO AGENDAMENTO (DESKTOP) --- */}
+        <div className="hidden md:flex justify-end mb-6">
+            <button 
+                onClick={() => setModalAberto(true)}
+                className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow hover:bg-indigo-700 transition-transform active:scale-95"
+            >
+                + Novo Agendamento
+            </button>
+        </div>
+
         {/* ABAS DE NAVEGAÇÃO */}
-        <div className="flex bg-white p-1 rounded-xl shadow-sm mb-8 border border-gray-200 max-w-md mx-auto md:mx-0">
+        <div className="flex bg-white p-1 rounded-xl shadow-sm mb-6 border border-gray-200 max-w-md mx-auto md:mx-0">
             <button 
                 onClick={() => setAbaAtiva('proximos')}
                 className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${abaAtiva === 'proximos' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-500 hover:bg-gray-50'}`}
@@ -218,7 +212,7 @@ export default function AgendamentosPage() {
                                 <span className="w-2 h-2 rounded-full bg-indigo-400"></span> {labelDia}
                             </h3>
                             
-                            {/* Grid Responsivo: 1 coluna no celular, 2 no PC */}
+                            {/* Grid Responsivo */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {listaAgrupada[dataKey].map((ag: any) => (
                                     <div key={ag.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-indigo-300 transition-colors flex justify-between items-center">
