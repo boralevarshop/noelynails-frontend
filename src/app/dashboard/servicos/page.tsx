@@ -10,7 +10,7 @@ export default function ServicosPage() {
   const [usuario, setUsuario] = useState<any>(null);
   const [tenant, setTenant] = useState<any>(null); // CORES
 
-  // Estado de Edição
+  // --- ESTADO DE EDIÇÃO ---
   const [editandoId, setEditandoId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
@@ -39,8 +39,7 @@ export default function ServicosPage() {
       
       if (resServ.ok) {
         const data = await resServ.json();
-        if (Array.isArray(data)) setServices(data);
-        else setServices([]);
+        setServices(Array.isArray(data) ? data : []);
       }
       
       if (resTenant.ok) {
@@ -79,8 +78,9 @@ export default function ServicosPage() {
 
       if (res.ok) {
         alert(editandoId ? 'Serviço atualizado!' : 'Serviço criado!');
+        // Limpa formulário e sai do modo edição
         setForm({ nome: '', preco: '', duracaoMin: '30', diasRetorno: '30' });
-        setEditandoId(null); // Sai do modo edição
+        setEditandoId(null);
         fetchServices(usuario.tenant.id);
       } else {
         alert('Erro ao salvar. Verifique os dados.');
@@ -97,6 +97,7 @@ export default function ServicosPage() {
           duracaoMin: servico.duracaoMin,
           diasRetorno: servico.diasRetorno
       });
+      // Rola a página para o topo suavemente
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -104,6 +105,7 @@ export default function ServicosPage() {
       setEditandoId(null);
       setForm({ nome: '', preco: '', duracaoMin: '30', diasRetorno: '30' });
   };
+  // -----------------------------------------
 
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza?')) return;
@@ -128,6 +130,7 @@ export default function ServicosPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           
+          {/* Formulário Inteligente (Cria ou Edita) */}
           <div className="bg-white p-6 rounded-lg shadow h-fit">
             <h2 className="text-lg font-semibold mb-4" style={{ color: corPrincipal }}>
                 {editandoId ? 'Editar Serviço' : 'Novo Serviço'}
@@ -187,6 +190,7 @@ export default function ServicosPage() {
                         🔄 Retorno sugerido: {service.diasRetorno || 30} dias
                       </p>
                     </div>
+                    
                     <div className="flex gap-2">
                         <button 
                             onClick={() => iniciarEdicao(service)} 
