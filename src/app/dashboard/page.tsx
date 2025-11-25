@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 export default function Dashboard() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<any>(null);
+  const [tenant, setTenant] = useState<any>(null);
   
   // Dados
   const [todosAgendamentos, setTodosAgendamentos] = useState<any[]>([]);
@@ -47,13 +48,17 @@ export default function Dashboard() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       
-      const [resAgenda, resProf] = await Promise.all([
+      const [resAgenda, resProf, resTenant] = await Promise.all([
         fetch(`${apiUrl}/appointments/tenant/${tenantId}`),
-        fetch(`${apiUrl}/professionals/tenant/${tenantId}`)
+        fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
+        fetch(`${apiUrl}/tenants/${tenantId}`)
       ]);
 
       const dadosAgenda = await resAgenda.json();
       const dadosProf = await resProf.json();
+      const dadosTenant = await resTenant.json();
+
+      setTenant(dadosTenant);
       
       const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
       
@@ -90,7 +95,7 @@ export default function Dashboard() {
       faturamento: totalMes
     });
 
-    // Ranking (Sempre calculado com base em todos para o dono)
+    // Ranking
     const agrupado: any = {};
     todosAgendamentos.forEach((ag: any) => {
       const nome = ag.profissional.nome;
@@ -159,9 +164,21 @@ export default function Dashboard() {
   const isProfissional = usuario.role === 'PROFISSIONAL';
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
 
-  // --- NOVO: Link de Agendamento Público ---
+  // Lógica da Etiqueta do Plano
+  let planoLabel = null;
+  if (tenant) {
+      if (tenant.statusAssinatura === 'TRIAL') {
+          const dias = Math.ceil((new Date(tenant.trialFim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+          planoLabel = <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold border border-green-300 shadow-sm animate-pulse">💎 Teste Grátis: {dias} dias</span>;
+      } else if (tenant.plano === 'FREE') {
+          planoLabel = <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Plano Free</span>;
+      } else {
+          planoLabel = <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full font-bold">Plano {tenant.plano}</span>;
+      }
+  }
+  
+  // Link Público
   const linkPublico = `agendar.devhenri.shop/${usuario.tenant.slug}`;
-  // -----------------------------------------
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -169,12 +186,13 @@ export default function Dashboard() {
       <nav className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <h1 className="text-xl font-bold text-indigo-600 truncate max-w-[120px] md:max-w-none">
                 {usuario.tenant.nome}
               </h1>
               
-              {/* MENU DESKTOP */}
+              <div className="hidden md:block">{planoLabel}</div>
+
               <div className="hidden md:flex space-x-1 ml-4">
                 <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
                 <button onClick={() => router.push('/dashboard/calendario')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Calendário</button>
@@ -185,11 +203,15 @@ export default function Dashboard() {
             </div>
             
             <div className="flex items-center gap-3">
-              {/* Botão Admin */}
               {usuario.role === 'ADMIN_GLOBAL' && (
-                <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black transition-colors shadow-sm">👑 ADMIN</button>
+                <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black transition-colors shadow-sm">
+                  👑 ADMIN
+                </button>
               )}
-              <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200">💎</button>
+              <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200" title="Meu Plano">
+                 💎
+              </button>
+
               <button onClick={() => router.push('/dashboard/perfil')} className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors group">
                 <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 group-hover:bg-indigo-200">
                     {usuario.nome.charAt(0).toUpperCase()}
@@ -200,7 +222,6 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-        {/* Menu Mobile */}
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
           <div className="grid grid-cols-5 divide-x divide-gray-200">
             <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium text-indigo-600 hover:bg-gray-100 flex flex-col items-center"><span>📅</span> Agenda</button>
@@ -209,33 +230,15 @@ export default function Dashboard() {
             <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>👥</span> Eqp</button>
             <button onClick={() => router.push('/dashboard/clientes')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>👩</span> Cli</button>
           </div>
+          <div className="bg-white border-t border-gray-200 py-1 text-center">
+             {planoLabel}
+          </div>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
-        {/* --- NOVO: CARD DE DIVULGAÇÃO (LINK PÚBLICO) --- */}
-        {/* Só aparece para Dono ou Admin */}
-        {isDono && (
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 mb-6 flex flex-col md:flex-row items-center justify-between text-white">
-                <div className="mb-3 md:mb-0 text-center md:text-left">
-                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
-                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
-                </div>
-                <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
-                    <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
-                    <button 
-                        onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))}
-                        className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0"
-                    >
-                        Copiar
-                    </button>
-                </div>
-            </div>
-        )}
-        {/* ----------------------------------------------- */}
-
-        {/* --- SELETOR DE VISÃO (FILTRO INTELIGENTE) --- */}
+        {/* Filtro */}
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-gray-800">
                 {filtroId === 'todos' ? 'Visão Geral' : isProfissional ? 'Minha Agenda' : `Agenda de ${profissionais.find(p => p.id === filtroId)?.nome || '...'}`}
@@ -256,7 +259,7 @@ export default function Dashboard() {
             </select>
         </div>
 
-        {/* Cards Globais */}
+        {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
             <dt className="text-sm font-medium text-gray-500 truncate">
@@ -280,20 +283,10 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* Coluna Esquerda: Agenda da Semana */}
             <div className={isDono ? "lg:col-span-2" : "lg:col-span-3"}>
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                   Agenda da Semana
-                </h2>
-                {loading ? <p>Carregando...</p> : (
-                    <div className={isDono ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"}>
-                        {renderAgendaSemana()}
-                    </div>
-                )}
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Agenda da Semana</h2>
+                {loading ? <p>Carregando...</p> : <div className={isDono ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"}>{renderAgendaSemana()}</div>}
             </div>
-
-            {/* Coluna Direita: Ranking (SÓ APARECE PARA O DONO) */}
             {isDono && (
                 <div>
                     <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
@@ -302,15 +295,8 @@ export default function Dashboard() {
                             {ranking.map((prof, index) => (
                                 <li key={index} className={`p-4 flex items-center justify-between ${prof.nome === usuario?.nome ? 'bg-indigo-50' : ''}`}>
                                     <div className="flex items-center">
-                                        <span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 mr-3">
-                                            {prof.nome.charAt(0)}
-                                        </span>
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-900">
-                                                {prof.nome} {prof.nome === usuario?.nome && '(Você)'}
-                                            </p>
-                                            <p className="text-xs text-gray-500">{prof.qtd} agendamentos</p>
-                                        </div>
+                                        <span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 mr-3">{prof.nome.charAt(0)}</span>
+                                        <div><p className="text-sm font-medium text-gray-900">{prof.nome}</p><p className="text-xs text-gray-500">{prof.qtd} agendamentos</p></div>
                                     </div>
                                     <div className="text-sm font-bold text-green-600">R$ {prof.total.toFixed(2)}</div>
                                 </li>
@@ -320,6 +306,26 @@ export default function Dashboard() {
                 </div>
             )}
         </div>
+
+        {/* --- CARD DO LINK PÚBLICO (MOVIMENTO PARA O FINAL) --- */}
+        {isDono && (
+            <div className="mt-10 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white">
+                <div className="mb-3 md:mb-0 text-center md:text-left">
+                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
+                    <p className="text-indigo-100 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
+                    <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
+                    <button 
+                        onClick={() => navigator.clipboard.writeText(`https://${linkPublico}`).then(() => alert('Link copiado!'))}
+                        className="bg-white text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-50 transition shrink-0"
+                    >
+                        Copiar
+                    </button>
+                </div>
+            </div>
+        )}
+        {/* ----------------------------------------------- */}
 
       </main>
     </div>
