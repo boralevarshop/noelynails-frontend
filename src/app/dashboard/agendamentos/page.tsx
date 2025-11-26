@@ -12,7 +12,7 @@ export default function AgendamentosPage() {
   const [profissionais, setProfissionais] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [usuario, setUsuario] = useState<any>(null);
-  const [tenant, setTenant] = useState<any>(null); // Dados do Salão (Cores)
+  const [tenant, setTenant] = useState<any>(null); // CORES
   const [loading, setLoading] = useState(true);
   
   // Estados de Controle de Interface
@@ -53,8 +53,12 @@ export default function AgendamentosPage() {
   useEffect(() => {
     if (usuario && profissionais.length > 0) {
         const souProfissional = profissionais.find(p => p.id === usuario.id);
+        
         if (souProfissional) {
-            setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
+            setNovoAgendamento(prev => ({
+                ...prev,
+                professionalId: usuario.id
+            }));
         }
     }
   }, [usuario, profissionais, modalAberto]);
@@ -102,11 +106,16 @@ export default function AgendamentosPage() {
 
       if (res.ok) {
         alert('Agendamento realizado! 📅');
+        
         const manterProfissional = profissionais.find(p => p.id === usuario.id);
+        
         setNovoAgendamento({ 
-            nomeCliente: '', telefoneCliente: '', serviceId: '', 
+            nomeCliente: '', 
+            telefoneCliente: '', 
+            serviceId: '', 
             professionalId: manterProfissional ? usuario.id : '' 
         });
+        
         setDataSelecionada(''); setHorarioSelecionado('');
         setModalAberto(false);
         carregarDados(usuario.tenant.id);
@@ -156,22 +165,30 @@ export default function AgendamentosPage() {
 
   const listaAgrupada = agruparPorData(getListaFiltrada());
 
-  // --- CORES DINÂMICAS ---
+  // Cores Dinâmicas
   const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant?.corSecundaria || '#F3F4F6';
 
   return (
     <div className="min-h-screen pb-20 md:pb-8" style={{ backgroundColor: corFundo }}>
       
-      {/* Cabeçalho */}
+      {/* Cabeçalho Responsivo */}
       <div className="bg-white shadow-sm sticky top-0 z-20 px-6 py-4 flex justify-between items-center">
          <div className="flex items-center gap-4">
-             <button onClick={() => router.push('/dashboard')} className="font-medium flex items-center gap-1 hover:opacity-75" style={{ color: '#6B7280' }}>
-                ← Voltar ao Painel
+             
+             {/* BOTÃO VOLTAR COM ESTILO ATUALIZADO */}
+             <button 
+                onClick={() => router.push('/dashboard')} 
+                className="px-4 py-2 rounded-lg font-bold border-2 transition-colors flex items-center gap-2 hover:bg-gray-50"
+                style={{ borderColor: corPrincipal, color: corPrincipal }}
+             >
+                <span>←</span> Voltar ao Painel
              </button>
-             <h1 className="text-xl font-bold hidden md:block" style={{ color: '#1F2937' }}>Agenda Inteligente</h1>
+
+             <h1 className="text-xl font-bold text-gray-800 hidden md:block">Agenda Inteligente</h1>
          </div>
 
+         {/* Botão Desktop */}
          <button 
             onClick={() => setModalAberto(true)}
             className="hidden md:block text-white px-4 py-2 rounded-lg font-bold transition-colors hover:opacity-90"
@@ -180,7 +197,8 @@ export default function AgendamentosPage() {
             + Novo Agendamento
          </button>
 
-         <h1 className="text-lg font-bold md:hidden" style={{ color: '#1F2937' }}>Agenda</h1>
+         {/* Título Mobile */}
+         <h1 className="text-lg font-bold text-gray-800 md:hidden">Agenda</h1>
       </div>
 
       <div className="max-w-5xl mx-auto p-4 md:p-6">
@@ -227,7 +245,7 @@ export default function AgendamentosPage() {
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {listaAgrupada[dataKey].map((ag: any) => (
-                                    <div key={ag.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-gray-300 transition-colors flex justify-between items-center">
+                                    <div key={ag.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 transition-colors flex justify-between items-center hover:shadow-md">
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xl font-bold text-gray-800">
@@ -288,13 +306,13 @@ export default function AgendamentosPage() {
                 <form onSubmit={handleCreate} className="space-y-4">
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">Cliente</label>
-                        <input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar nome..." />
+                        <input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 outline-none" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar nome..." />
                         <datalist id="lista-cli-modal">{clientes.map(c => <option key={c.id} value={c.nome} />)}</datalist>
                     </div>
                     
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">WhatsApp</label>
-                        <input required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} placeholder="11999..." />
+                        <input required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 outline-none" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} placeholder="11999..." />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -317,7 +335,7 @@ export default function AgendamentosPage() {
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Data</label>
-                            <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} />
+                            <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} min={new Date().toISOString().split('T')[0]} onChange={e => setDataSelecionada(e.target.value)} />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Hora</label>
