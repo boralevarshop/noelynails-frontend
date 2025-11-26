@@ -12,7 +12,7 @@ export default function AgendamentosPage() {
   const [profissionais, setProfissionais] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [usuario, setUsuario] = useState<any>(null);
-  const [tenant, setTenant] = useState<any>(null); // NOVO: Tenant para cores
+  const [tenant, setTenant] = useState<any>(null); // Dados do Salão (Cores)
   const [loading, setLoading] = useState(true);
   
   // Estados de Controle de Interface
@@ -63,7 +63,6 @@ export default function AgendamentosPage() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       
-      // Adicionei o fetch do tenant para pegar as cores
       const [resServ, resProf, resAgenda, resCli, resTenant] = await Promise.all([
         fetch(`${apiUrl}/services/tenant/${tenantId}`),
         fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
@@ -228,7 +227,7 @@ export default function AgendamentosPage() {
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {listaAgrupada[dataKey].map((ag: any) => (
-                                    <div key={ag.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 transition-colors flex justify-between items-center hover:shadow-md">
+                                    <div key={ag.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-gray-300 transition-colors flex justify-between items-center">
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xl font-bold text-gray-800">
@@ -289,13 +288,13 @@ export default function AgendamentosPage() {
                 <form onSubmit={handleCreate} className="space-y-4">
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">Cliente</label>
-                        <input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 outline-none" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar nome..." />
+                        <input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar nome..." />
                         <datalist id="lista-cli-modal">{clientes.map(c => <option key={c.id} value={c.nome} />)}</datalist>
                     </div>
                     
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">WhatsApp</label>
-                        <input required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 outline-none" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} placeholder="11999..." />
+                        <input required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} placeholder="11999..." />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -318,7 +317,7 @@ export default function AgendamentosPage() {
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Data</label>
-                            <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} min={new Date().toISOString().split('T')[0]} onChange={e => setDataSelecionada(e.target.value)} />
+                            <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Hora</label>
