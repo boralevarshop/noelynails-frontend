@@ -15,9 +15,13 @@ export default function PublicAgendamentoPage() {
 
   const [servicos, setServicos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
-  const [horariosLivres, setHorariosLivres] = useState<string[]>([]); // Novo estado
+  const [horariosLivres, setHorariosLivres] = useState<string[]>([]);
   const [buscandoHorarios, setBuscandoHorarios] = useState(false);
   
+  // --- NOVO: ESTADO DA BUSCA ---
+  const [busca, setBusca] = useState('');
+  // -----------------------------
+
   const [selecao, setSelecao] = useState({
     serviceId: '',
     serviceNome: '',
@@ -40,7 +44,6 @@ export default function PublicAgendamentoPage() {
         if (!res.ok) { alert('Salão fechado ou não encontrado.'); return; }
         
         const dadosTenant = await res.json();
-        // Verifica se o salão permite agendamento online
         if (!dadosTenant.agendamentoOnline) {
             alert('Este salão desativou o agendamento online temporariamente.');
             return;
@@ -53,14 +56,12 @@ export default function PublicAgendamentoPage() {
     } catch (error) { console.error(error); setLoading(false); }
   };
 
-  // Busca profissionais FILTRADOS pelo serviço e pela visibilidade
   const buscarProfissionais = async (serviceId: string) => {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const res = await fetch(`${apiUrl}/professionals/tenant/${tenant.id}?serviceId=${serviceId}`);
       setProfissionais(await res.json());
   };
 
-  // Busca HORÁRIOS REAIS (Calculadora do Backend)
   const buscarHorarios = async (data: string) => {
       if (!data || !selecao.professionalId || !selecao.serviceId) return;
       
@@ -86,18 +87,23 @@ export default function PublicAgendamentoPage() {
 
   const avancarPasso = (dados: any) => {
       setSelecao(prev => ({ ...prev, ...dados }));
+      setBusca(''); // Limpa a busca ao avançar
       
       if (step === 1 && dados.serviceId) {
           buscarProfissionais(dados.serviceId);
           setStep(2);
       }
       else if (step === 2) {
-          // Ao escolher profissional, vai pra data (mas não busca horário ainda)
           setStep(3);
       }
       else if (step === 3 && dados.horario) {
           setStep(4);
       }
+  };
+
+  const voltarPasso = (novoPasso: number) => {
+      setBusca(''); // Limpa a busca ao voltar
+      setStep(novoPasso);
   };
 
   const finalizarAgendamento = async (e: React.FormEvent) => {
@@ -132,12 +138,17 @@ export default function PublicAgendamentoPage() {
   const corPrincipal = tenant.corPrimaria || '#4F46E5';
   const corFundo = tenant.corSecundaria || '#F3F4F6';
 
+  // --- FILTROS INTELIGENTES ---
+  const servicosFiltrados = servicos.filter(s => s.nome.toLowerCase().includes(busca.toLowerCase()));
+  const profissionaisFiltrados = profissionais.filter(p => p.nome.toLowerCase().includes(busca.toLowerCase()));
+
   return (
     <div className="min-h-screen flex flex-col items-center py-10 px-4" style={{ backgroundColor: corFundo }}>
       
       <div className="w-full max-w-md bg-white rounded-xl shadow-xl overflow-hidden">
         <div className="p-6 text-center text-white" style={{ backgroundColor: corPrincipal }}>
             <h1 className="text-2xl font-bold">{tenant.nome}</h1>
+            <p className="text-sm opacity-90">Agendamento Online</p>
         </div>
 
         <div className="p-6">
@@ -145,10 +156,29 @@ export default function PublicAgendamentoPage() {
             {step === 1 && (
                 <div>
                     <h2 className="text-lg font-bold text-gray-800 mb-4">1. Escolha o Serviço</h2>
-                    <div className="space-y-3">
-                        {servicos.map(serv => (
-                            <div key={serv.id} onClick={() => avancarPasso({ serviceId: serv.id, serviceNome: serv.nome, servicePreco: serv.preco })} className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50 flex justify-between items-center">
-                                <p className="font-bold text-gray-800">{serv.nome}</p>
+                    
+                    {/* CAMPO DE BUSCA */}
+                    <input 
+                        type="text" 
+                        placeholder="🔍 Buscar serviço..." 
+                        className="w-full border rounded-lg p-3 mb-4 outline-none focus:ring-2"
+                        style={{ '--tw-ring-color': corPrincipal } as any}
+                        value={busca}
+                        onChange={(e) => setBusca(e.target.value)}
+                    />
+
+                    <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+                        {servicosFiltrados.length === 0 && <p className="text-center text-gray-400 py-4">Nenhum serviço encontrado.</p>}
+                        {servicosFiltrados.map(serv => (
+                            <div 
+                                key={serv.id} 
+                                onClick={() => avancarPasso({ serviceId: serv.id, serviceNome: serv.nome, servicePreco: serv.preco, serviceDuracao: serv.duracaoMin })}
+                                className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50 flex justify-between items-center transition-colors"
+                            >
+                                <div>
+                                    <p className="font-bold text-gray-800">{serv.nome}</p>
+                                    <p className="text-xs text-gray-500">{serv.duracaoMin} min</p>
+                                </div>
                                 <p className="font-bold" style={{ color: corPrincipal }}>R$ {Number(serv.preco).toFixed(2)}</p>
                             </div>
                         ))}
@@ -158,13 +188,30 @@ export default function PublicAgendamentoPage() {
 
             {step === 2 && (
                 <div>
-                    <button onClick={() => setStep(1)} className="text-xs text-gray-500 mb-4">← Voltar</button>
+                    <button onClick={() => voltarPasso(1)} className="text-xs text-gray-500 mb-4">← Voltar</button>
                     <h2 className="text-lg font-bold text-gray-800 mb-4">2. Escolha o Profissional</h2>
-                    {profissionais.length === 0 ? <p>Nenhum profissional disponível para este serviço.</p> : (
-                        <div className="space-y-3">
-                            {profissionais.map(prof => (
-                                <div key={prof.id} onClick={() => avancarPasso({ professionalId: prof.id, professionalNome: prof.nome })} className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50 flex items-center gap-4">
-                                    <div className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: corPrincipal }}>{prof.nome.charAt(0)}</div>
+                    
+                    {/* CAMPO DE BUSCA */}
+                    <input 
+                        type="text" 
+                        placeholder="🔍 Buscar profissional..." 
+                        className="w-full border rounded-lg p-3 mb-4 outline-none focus:ring-2"
+                        style={{ '--tw-ring-color': corPrincipal } as any}
+                        value={busca}
+                        onChange={(e) => setBusca(e.target.value)}
+                    />
+
+                    {profissionaisFiltrados.length === 0 ? <p className="text-center text-gray-400 py-4">Nenhum profissional encontrado.</p> : (
+                        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+                            {profissionaisFiltrados.map(prof => (
+                                <div 
+                                    key={prof.id} 
+                                    onClick={() => avancarPasso({ professionalId: prof.id, professionalNome: prof.nome })}
+                                    className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50 flex items-center gap-4 transition-colors"
+                                >
+                                    <div className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: corPrincipal }}>
+                                        {prof.nome.charAt(0)}
+                                    </div>
                                     <p className="font-bold text-gray-800">{prof.nome}</p>
                                 </div>
                             ))}
@@ -175,25 +222,27 @@ export default function PublicAgendamentoPage() {
 
             {step === 3 && (
                 <div>
-                    <button onClick={() => setStep(2)} className="text-xs text-gray-500 mb-4">← Voltar</button>
+                    <button onClick={() => voltarPasso(2)} className="text-xs text-gray-500 mb-4">← Voltar</button>
                     <h2 className="text-lg font-bold text-gray-800 mb-4">3. Data e Hora</h2>
                     
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dia</label>
-                    <input type="date" className="w-full border rounded-lg p-3 mb-4 outline-none focus:ring-2"
+                    <input 
+                        type="date" 
+                        className="w-full border rounded-lg p-3 mb-4 outline-none focus:ring-2"
                         style={{ '--tw-ring-color': corPrincipal } as any}
                         min={new Date().toISOString().split('T')[0]}
                         onChange={(e) => buscarHorarios(e.target.value)}
                     />
 
-                    {buscandoHorarios && <p className="text-center text-gray-500">Buscando horários...</p>}
+                    {buscandoHorarios && <p className="text-center text-gray-500 animate-pulse">Buscando horários livres...</p>}
 
                     {selecao.data && !buscandoHorarios && (
                         <>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Horários Livres</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {horariosLivres.length === 0 ? <p className="col-span-3 text-center text-gray-400 text-sm">Sem horários livres.</p> : 
+                            <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto">
+                                {horariosLivres.length === 0 ? <p className="col-span-3 text-center text-gray-400 text-sm py-4">Sem horários livres neste dia.</p> : 
                                     horariosLivres.map(hora => (
-                                    <button key={hora} onClick={() => avancarPasso({ horario: hora })} className="p-2 border rounded text-sm font-medium hover:bg-gray-50">
+                                    <button key={hora} onClick={() => avancarPasso({ horario: hora })} className="p-2 border rounded text-sm font-medium hover:bg-gray-50 transition-colors">
                                         {hora}
                                     </button>
                                 ))}
@@ -205,21 +254,28 @@ export default function PublicAgendamentoPage() {
 
             {step === 4 && (
                 <form onSubmit={finalizarAgendamento}>
-                    <button type="button" onClick={() => setStep(3)} className="text-xs text-gray-500 mb-4">← Voltar</button>
+                    <button type="button" onClick={() => voltarPasso(3)} className="text-xs text-gray-500 mb-4">← Voltar</button>
                     <h2 className="text-lg font-bold text-gray-800 mb-2">4. Seus Dados</h2>
+                    <div className="bg-gray-50 p-3 rounded mb-4 text-sm text-gray-600 border">
+                        <p><strong>{selecao.serviceNome}</strong> com {selecao.professionalNome}</p>
+                        <p>{format(new Date(selecao.data), 'dd/MM')} às {selecao.horario}</p>
+                        <p className="font-bold mt-1" style={{ color: corPrincipal }}>R$ {Number(selecao.servicePreco).toFixed(2)}</p>
+                    </div>
+
                     <div className="space-y-4">
-                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome</label><input required className="w-full border rounded-lg p-3" onChange={e => setSelecao({...selecao, clienteNome: e.target.value})} /></div>
-                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">WhatsApp</label><input required className="w-full border rounded-lg p-3" placeholder="11999999999" onChange={e => setSelecao({...selecao, clienteTelefone: e.target.value})} /></div>
-                        <button type="submit" className="w-full text-white py-4 rounded-xl font-bold text-lg shadow-lg mt-2" style={{ backgroundColor: corPrincipal }}>Confirmar</button>
+                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome</label><input required className="w-full border rounded-lg p-3 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} onChange={e => setSelecao({...selecao, clienteNome: e.target.value})} /></div>
+                        <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">WhatsApp</label><input required className="w-full border rounded-lg p-3 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} placeholder="11999999999" onChange={e => setSelecao({...selecao, clienteTelefone: e.target.value})} /></div>
+                        <button type="submit" className="w-full text-white py-4 rounded-xl font-bold text-lg shadow-lg mt-2 hover:opacity-90 transition-opacity" style={{ backgroundColor: corPrincipal }}>Confirmar Agendamento</button>
                     </div>
                 </form>
             )}
 
             {step === 5 && (
                 <div className="text-center py-10">
-                    <div className="h-20 w-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-4">✓</div>
+                    <div className="h-24 w-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-5xl mx-auto mb-6 animate-bounce">✓</div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Agendado!</h2>
-                    <button onClick={() => window.location.reload()} className="text-indigo-600 font-bold hover:underline" style={{ color: corPrincipal }}>Novo Agendamento</button>
+                    <p className="text-gray-600 mb-8">Enviamos a confirmação no seu WhatsApp.</p>
+                    <button onClick={() => window.location.reload()} className="font-bold hover:underline" style={{ color: corPrincipal }}>Fazer outro agendamento</button>
                 </div>
             )}
         </div>
