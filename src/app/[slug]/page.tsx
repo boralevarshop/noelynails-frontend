@@ -18,9 +18,8 @@ export default function PublicAgendamentoPage() {
   const [horariosLivres, setHorariosLivres] = useState<string[]>([]);
   const [buscandoHorarios, setBuscandoHorarios] = useState(false);
   
-  // --- NOVO: ESTADO DA BUSCA ---
+  // Estado da Busca
   const [busca, setBusca] = useState('');
-  // -----------------------------
 
   const [selecao, setSelecao] = useState({
     serviceId: '',
@@ -132,15 +131,27 @@ export default function PublicAgendamentoPage() {
       } catch (error) { alert('Erro de conexão.'); }
   };
 
+  // --- FUNÇÃO DE NORMALIZAÇÃO (Remove acentos e deixa minúsculo) ---
+  const normalizarTexto = (texto: string) => {
+      return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  };
+  // -----------------------------------------------------------------
+
   if (loading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
   if (!tenant) return null;
 
   const corPrincipal = tenant.corPrimaria || '#4F46E5';
   const corFundo = tenant.corSecundaria || '#F3F4F6';
 
-  // --- FILTROS INTELIGENTES ---
-  const servicosFiltrados = servicos.filter(s => s.nome.toLowerCase().includes(busca.toLowerCase()));
-  const profissionaisFiltrados = profissionais.filter(p => p.nome.toLowerCase().includes(busca.toLowerCase()));
+  // --- FILTROS INTELIGENTES (COM NORMALIZAÇÃO) ---
+  const servicosFiltrados = servicos.filter(s => 
+      normalizarTexto(s.nome).includes(normalizarTexto(busca))
+  );
+  
+  const profissionaisFiltrados = profissionais.filter(p => 
+      normalizarTexto(p.nome).includes(normalizarTexto(busca))
+  );
+  // -----------------------------------------------
 
   return (
     <div className="min-h-screen flex flex-col items-center py-10 px-4" style={{ backgroundColor: corFundo }}>
