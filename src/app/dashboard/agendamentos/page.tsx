@@ -53,12 +53,8 @@ export default function AgendamentosPage() {
   useEffect(() => {
     if (usuario && profissionais.length > 0) {
         const souProfissional = profissionais.find(p => p.id === usuario.id);
-        
         if (souProfissional) {
-            setNovoAgendamento(prev => ({
-                ...prev,
-                professionalId: usuario.id
-            }));
+            setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
         }
     }
   }, [usuario, profissionais, modalAberto]);
@@ -100,22 +96,20 @@ export default function AgendamentosPage() {
         body: JSON.stringify({
           ...novoAgendamento,
           tenantId: usuario.tenant.id,
-          dataHora: dataHoraCombinada.toISOString()
+          dataHora: dataHoraCombinada.toISOString(),
+          isInternal: true // <--- MUDANÇA CRÍTICA: Avisa o backend que é interno
         })
       });
 
       if (res.ok) {
         alert('Agendamento realizado! 📅');
-        
         const manterProfissional = profissionais.find(p => p.id === usuario.id);
-        
         setNovoAgendamento({ 
             nomeCliente: '', 
             telefoneCliente: '', 
             serviceId: '', 
             professionalId: manterProfissional ? usuario.id : '' 
         });
-        
         setDataSelecionada(''); setHorarioSelecionado('');
         setModalAberto(false);
         carregarDados(usuario.tenant.id);
@@ -165,18 +159,14 @@ export default function AgendamentosPage() {
 
   const listaAgrupada = agruparPorData(getListaFiltrada());
 
-  // Cores Dinâmicas
   const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant?.corSecundaria || '#F3F4F6';
 
   return (
     <div className="min-h-screen pb-20 md:pb-8" style={{ backgroundColor: corFundo }}>
       
-      {/* Cabeçalho Responsivo */}
       <div className="bg-white shadow-sm sticky top-0 z-20 px-6 py-4 flex justify-between items-center">
          <div className="flex items-center gap-4">
-             
-             {/* BOTÃO VOLTAR COM ESTILO ATUALIZADO */}
              <button 
                 onClick={() => router.push('/dashboard')} 
                 className="px-4 py-2 rounded-lg font-bold border-2 transition-colors flex items-center gap-2 hover:bg-gray-50"
@@ -184,11 +174,9 @@ export default function AgendamentosPage() {
              >
                 <span>←</span> Voltar ao Painel
              </button>
-
              <h1 className="text-xl font-bold text-gray-800 hidden md:block">Agenda Inteligente</h1>
          </div>
 
-         {/* Botão Desktop */}
          <button 
             onClick={() => setModalAberto(true)}
             className="hidden md:block text-white px-4 py-2 rounded-lg font-bold transition-colors hover:opacity-90"
@@ -197,13 +185,11 @@ export default function AgendamentosPage() {
             + Novo Agendamento
          </button>
 
-         {/* Título Mobile */}
-         <h1 className="text-lg font-bold text-gray-800 md:hidden">Agenda</h1>
+         <h1 className="text-lg font-bold md:hidden" style={{ color: '#1F2937' }}>Agenda</h1>
       </div>
 
       <div className="max-w-5xl mx-auto p-4 md:p-6">
         
-        {/* Abas */}
         <div className="flex bg-white p-1 rounded-xl shadow-sm mb-8 border border-gray-200 max-w-md mx-auto md:mx-0">
             <button 
                 onClick={() => setAbaAtiva('proximos')}
@@ -221,7 +207,6 @@ export default function AgendamentosPage() {
             </button>
         </div>
 
-        {/* Lista */}
         {loading ? <p className="text-center p-10 text-gray-500">Carregando agenda...</p> : (
             <div className="space-y-8">
                 {Object.keys(listaAgrupada).length === 0 && (
@@ -283,7 +268,6 @@ export default function AgendamentosPage() {
         )}
       </div>
 
-      {/* Botão Flutuante Mobile */}
       {abaAtiva === 'proximos' && (
           <button 
             onClick={() => setModalAberto(true)}
@@ -294,7 +278,6 @@ export default function AgendamentosPage() {
           </button>
       )}
 
-      {/* Modal */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
