@@ -228,7 +228,7 @@ export default function CalendarioPage() {
           <button 
                 onClick={() => router.push('/dashboard')} 
                 className="px-4 py-2 rounded-lg font-bold border-2 transition-colors flex items-center gap-2 hover:bg-gray-50"
-                style={{ backgroundColor: corPrincipal, borderColor: corFundo, color: corFundo}}
+                style={{ backgroundColor: corPrincipal, borderColor: "#fff", color: "#fff"}}
              >
                 <span>←</span> Voltar ao Painel
              </button>
