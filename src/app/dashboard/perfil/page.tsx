@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -16,14 +17,16 @@ export default function PerfilPage() {
     aparecerNoSite: true, servicosIds: [] as string[], horarios: {} as any
   });
 
+  // Form Salão (3 Cores)
   const [formTenant, setFormTenant] = useState({
     nome: '', slug: '', telefone: '',
-    corPrimaria: '#4F46E5', corSecundaria: '#F3F4F6',
+    corPrimaria: '#4F46E5', 
+    corSecundaria: '#F3F4F6',
+    corTerciaria: '#FFFFFF', // NOVO
     agendamentoOnline: true, segmento: 'SALAO_BELEZA'
   });
 
   const [formSenha, setFormSenha] = useState({ nova: '', confirmacao: '' });
-
   const diasSemana = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
   const nomesDias: any = { seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta', sab: 'Sábado', dom: 'Domingo' };
   const segmentos = [
@@ -66,7 +69,9 @@ export default function PerfilPage() {
 
         setFormTenant({
             nome: dadosTenant.nome, slug: dadosTenant.slug, telefone: dadosTenant.telefone || '',
-            corPrimaria: dadosTenant.corPrimaria || '#4F46E5', corSecundaria: dadosTenant.corSecundaria || '#F3F4F6',
+            corPrimaria: dadosTenant.corPrimaria || '#4F46E5', 
+            corSecundaria: dadosTenant.corSecundaria || '#F3F4F6',
+            corTerciaria: dadosTenant.corTerciaria || '#FFFFFF', // Carrega do banco
             agendamentoOnline: dadosTenant.agendamentoOnline !== false, segmento: dadosTenant.segmento || 'SALAO_BELEZA'
         });
     } catch (error) { console.error(error); } finally { setLoading(false); }
@@ -103,7 +108,7 @@ export default function PerfilPage() {
             body: JSON.stringify(formTenant)
         });
         if (res.ok) {
-            alert('Dados do salão atualizados!');
+            alert('Layout salvo com sucesso!');
             const userLocal = JSON.parse(localStorage.getItem('usuario_saas') || '{}');
             userLocal.tenant.nome = formTenant.nome; userLocal.tenant.slug = formTenant.slug;
             localStorage.setItem('usuario_saas', JSON.stringify(userLocal));
@@ -141,11 +146,11 @@ export default function PerfilPage() {
 
   if (loading) return <div className="p-10 text-center">Carregando perfil...</div>;
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
-  const corPrincipal = formTenant.corPrimaria || '#4F46E5';
 
   return (
     <div className="min-h-screen p-4 md:p-8" style={{ backgroundColor: tenant?.corSecundaria || '#F3F4F6' }}>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
+        
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Meu Perfil</h1>
           <button onClick={() => router.push('/dashboard')} className="text-gray-600 hover:text-gray-900">← Voltar</button>
@@ -164,6 +169,7 @@ export default function PerfilPage() {
                 {isDono && <button onClick={() => setAbaAtiva('salao')} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 whitespace-nowrap ${abaAtiva === 'salao' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>🏪 Meu Salão</button>}
             </div>
             <div className="p-6">
+                {/* ABA DADOS */}
                 {abaAtiva === 'dados' && (
                     <form onSubmit={handleSaveProfile} className="space-y-5 max-w-lg">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -176,40 +182,97 @@ export default function PerfilPage() {
                             <label htmlFor="aparecerNoSite" className="text-sm text-gray-700 font-medium cursor-pointer">Permitir que clientes agendem comigo pelo site</label>
                         </div>
                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bio</label><textarea className="w-full border rounded-lg p-2.5 h-24 resize-none" value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} /></div>
-                        <button type="submit" disabled={saving} className="w-full text-white py-3 rounded-lg font-bold hover:opacity-90 transition-opacity disabled:opacity-50" style={{ backgroundColor: corPrincipal }}>Salvar Dados</button>
+                        <button type="submit" disabled={saving} className="w-full text-white py-3 rounded-lg font-bold hover:opacity-90 transition-opacity disabled:opacity-50" style={{ backgroundColor: formTenant.corPrimaria }}>Salvar Dados</button>
                     </form>
                 )}
+
+                {/* ABA SALÃO (COM LIVE PREVIEW) */}
                 {abaAtiva === 'salao' && isDono && (
                     <form onSubmit={handleSaveTenant} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             <div className="space-y-4">
-                                <div><h3 className="text-lg font-bold text-gray-800">Configurações do Salão</h3><p className="text-sm text-gray-500">Personalize sua página pública.</p></div>
+                                <div><h3 className="text-lg font-bold text-gray-800">Identidade Visual</h3><p className="text-sm text-gray-500">Defina as 3 cores da sua marca.</p></div>
+                                
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Primária (Botões)</label>
+                                        <input type="color" className="h-10 w-full rounded border-0 cursor-pointer" value={formTenant.corPrimaria} onChange={e => setFormTenant({...formTenant, corPrimaria: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Secundária (Fundo)</label>
+                                        <input type="color" className="h-10 w-full rounded border-0 cursor-pointer" value={formTenant.corSecundaria} onChange={e => setFormTenant({...formTenant, corSecundaria: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Terciária (Cards)</label>
+                                        <input type="color" className="h-10 w-full rounded border-0 cursor-pointer" value={formTenant.corTerciaria} onChange={e => setFormTenant({...formTenant, corTerciaria: e.target.value})} />
+                                    </div>
+                                </div>
+
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Segmento / Tipo</label><select className="w-full border rounded-lg p-2.5 bg-white" value={formTenant.segmento} onChange={e => setFormTenant({...formTenant, segmento: e.target.value})}>{segmentos.map(seg => (<option key={seg.id} value={seg.id}>{seg.label}</option>))}</select></div>
-                                <div className="flex items-center gap-3 bg-green-50 p-4 rounded-lg border border-green-100">
-                                    <input type="checkbox" id="agendamentoOnline" className="w-5 h-5 rounded" checked={formTenant.agendamentoOnline} onChange={e => setFormTenant({...formTenant, agendamentoOnline: e.target.checked})} />
-                                    <div><label htmlFor="agendamentoOnline" className="text-sm font-bold text-gray-800 cursor-pointer block">Site de Agendamento Ativo</label><p className="text-xs text-gray-500">Se desmarcar, seu link público mostrará "Fechado".</p></div>
-                                </div>
+                                <div className="flex items-center gap-3 bg-green-50 p-4 rounded-lg border border-green-100"><input type="checkbox" id="agendamentoOnline" className="w-5 h-5 rounded" checked={formTenant.agendamentoOnline} onChange={e => setFormTenant({...formTenant, agendamentoOnline: e.target.checked})} /><div><label htmlFor="agendamentoOnline" className="text-sm font-bold text-gray-800 cursor-pointer block">Site de Agendamento Ativo</label><p className="text-xs text-gray-500">Se desmarcar, seu link público mostrará "Fechado".</p></div></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome do Salão</label><input type="text" required className="w-full border rounded-lg p-2.5" value={formTenant.nome} onChange={e => setFormTenant({...formTenant, nome: e.target.value})} /></div>
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Link (Slug)</label><div className="flex items-center border rounded-lg bg-gray-50 px-3"><span className="text-gray-500 text-sm">agendar.../</span><input type="text" required className="w-full p-2.5 bg-transparent outline-none font-bold" style={{ color: corPrincipal }} value={formTenant.slug} onChange={e => setFormTenant({...formTenant, slug: e.target.value})} /></div></div>
-                                <div className="grid grid-cols-2 gap-5">
-                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cor Principal</label><div className="flex gap-2"><input type="color" className="h-10 w-10 rounded cursor-pointer border-0" value={formTenant.corPrimaria} onChange={e => setFormTenant({...formTenant, corPrimaria: e.target.value})} /><input type="text" className="w-full border rounded-lg p-2.5 uppercase text-sm" value={formTenant.corPrimaria} onChange={e => setFormTenant({...formTenant, corPrimaria: e.target.value})} /></div></div>
-                                    <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cor de Fundo</label><div className="flex gap-2"><input type="color" className="h-10 w-10 rounded cursor-pointer border-0" value={formTenant.corSecundaria} onChange={e => setFormTenant({...formTenant, corSecundaria: e.target.value})} /><input type="text" className="w-full border rounded-lg p-2.5 uppercase text-sm" value={formTenant.corSecundaria} onChange={e => setFormTenant({...formTenant, corSecundaria: e.target.value})} /></div></div>
-                                </div>
-                                <button type="submit" disabled={saving} className="w-full text-white py-3 rounded-lg font-bold transition-colors disabled:opacity-50" style={{ backgroundColor: corPrincipal }}>Salvar Alterações</button>
+                                
+                                <button type="submit" disabled={saving} className="w-full text-white py-3 rounded-lg font-bold transition-colors disabled:opacity-50" style={{ backgroundColor: formTenant.corPrimaria }}>Salvar Aparência</button>
                             </div>
+
+                            {/* LIVE PREVIEW (SIMULADOR) */}
+                            <div className="border-4 border-gray-800 rounded-[30px] overflow-hidden shadow-2xl bg-black h-[500px] w-[280px] mx-auto relative">
+                                {/* Notch do celular */}
+                                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 h-6 w-32 bg-black rounded-b-xl z-20"></div>
+                                
+                                {/* Tela do Celular */}
+                                <div className="h-full w-full flex flex-col overflow-y-auto" style={{ backgroundColor: formTenant.corSecundaria }}>
+                                    
+                                    {/* Topo com Cor Primária */}
+                                    <div className="p-6 text-center text-white pt-10" style={{ backgroundColor: formTenant.corPrimaria }}>
+                                        <h3 className="font-bold text-lg">{formTenant.nome || 'Seu Salão'}</h3>
+                                        <p className="text-xs opacity-80">Agendamento Online</p>
+                                    </div>
+
+                                    <div className="p-4 flex-1 space-y-3">
+                                        <p className="text-xs font-bold opacity-50" style={{ color: '#000' }}>ESCOLHA O SERVIÇO</p>
+                                        
+                                        {/* Cards com Cor Terciária */}
+                                        <div className="p-3 rounded-lg shadow-sm flex justify-between items-center border border-gray-100" style={{ backgroundColor: formTenant.corTerciaria }}>
+                                            <div>
+                                                <p className="text-xs font-bold text-gray-800">Corte de Cabelo</p>
+                                                <p className="text-[10px] text-gray-500">30 min</p>
+                                            </div>
+                                            <p className="text-xs font-bold" style={{ color: formTenant.corPrimaria }}>R$ 50,00</p>
+                                        </div>
+
+                                        <div className="p-3 rounded-lg shadow-sm flex justify-between items-center border border-gray-100" style={{ backgroundColor: formTenant.corTerciaria }}>
+                                            <div>
+                                                <p className="text-xs font-bold text-gray-800">Barba Completa</p>
+                                                <p className="text-[10px] text-gray-500">20 min</p>
+                                            </div>
+                                            <p className="text-xs font-bold" style={{ color: formTenant.corPrimaria }}>R$ 35,00</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Botão Fake */}
+                                    <div className="p-4 mt-auto">
+                                         <div className="w-full py-3 rounded-lg text-center text-white text-xs font-bold shadow" style={{ backgroundColor: formTenant.corPrimaria }}>
+                                            Confirmar
+                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {/* FIM PREVIEW */}
                         </div>
                     </form>
                 )}
+
                 {abaAtiva === 'servicos' && (
                     <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{todosServicos.map(serv => (<div key={serv.id} onClick={() => toggleServico(serv.id)} className={`p-3 rounded-lg border-2 cursor-pointer flex items-center gap-3 ${formData.servicosIds.includes(serv.id) ? 'bg-indigo-50' : 'border-gray-200'}`} style={formData.servicosIds.includes(serv.id) ? { borderColor: corPrincipal } : {}}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.servicosIds.includes(serv.id) ? '' : 'bg-white border-gray-400'}`} style={formData.servicosIds.includes(serv.id) ? { backgroundColor: corPrincipal, borderColor: corPrincipal } : {}}>{formData.servicosIds.includes(serv.id) && <span className="text-white text-xs">✓</span>}</div><div><p className="font-bold text-gray-800">{serv.nome}</p></div></div>))}</div>
-                        <button onClick={handleSaveProfile} disabled={saving} className="w-full text-white py-3 rounded-lg font-bold hover:opacity-90" style={{ backgroundColor: corPrincipal }}>Salvar Serviços</button>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{todosServicos.map(serv => (<div key={serv.id} onClick={() => toggleServico(serv.id)} className={`p-3 rounded-lg border-2 cursor-pointer flex items-center gap-3 ${formData.servicosIds.includes(serv.id) ? 'bg-indigo-50' : 'border-gray-200'}`} style={formData.servicosIds.includes(serv.id) ? { borderColor: formTenant.corPrimaria } : {}}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.servicosIds.includes(serv.id) ? '' : 'bg-white border-gray-400'}`} style={formData.servicosIds.includes(serv.id) ? { backgroundColor: formTenant.corPrimaria, borderColor: formTenant.corPrimaria } : {}}>{formData.servicosIds.includes(serv.id) && <span className="text-white text-xs">✓</span>}</div><div><p className="font-bold text-gray-800">{serv.nome}</p></div></div>))}</div>
+                        <button onClick={handleSaveProfile} disabled={saving} className="w-full text-white py-3 rounded-lg font-bold hover:opacity-90" style={{ backgroundColor: formTenant.corPrimaria }}>Salvar Serviços</button>
                     </div>
                 )}
                 {abaAtiva === 'horarios' && (
                     <div className="space-y-6">
-                        <div className="space-y-3">{diasSemana.map(dia => (<div key={dia} className={`flex items-center justify-between p-3 rounded-lg border ${formData.horarios[dia]?.ativo ? 'bg-white border-gray-300' : 'bg-gray-100 border-gray-200'}`}><div className="flex items-center gap-3"><input type="checkbox" className="w-5 h-5 rounded" style={{ accentColor: corPrincipal }} checked={formData.horarios[dia]?.ativo} onChange={(e) => updateHorario(dia, 'ativo', e.target.checked)} /><span className={`font-bold w-20 capitalize ${formData.horarios[dia]?.ativo ? 'text-gray-800' : 'text-gray-400'}`}>{nomesDias[dia]}</span></div>{formData.horarios[dia]?.ativo ? (<div className="flex items-center gap-2"><input type="time" className="border rounded p-1 text-sm" value={formData.horarios[dia]?.inicio} onChange={(e) => updateHorario(dia, 'inicio', e.target.value)} /><span className="text-gray-400">-</span><input type="time" className="border rounded p-1 text-sm" value={formData.horarios[dia]?.fim} onChange={(e) => updateHorario(dia, 'fim', e.target.value)} /></div>) : (<span className="text-xs text-gray-400 uppercase font-bold px-4">Folga</span>)}</div>))}</div>
-                        <button onClick={handleSaveProfile} disabled={saving} className="w-full text-white py-3 rounded-lg font-bold hover:opacity-90" style={{ backgroundColor: corPrincipal }}>Salvar Horários</button>
+                        <div className="space-y-3">{diasSemana.map(dia => (<div key={dia} className={`flex items-center justify-between p-3 rounded-lg border ${formData.horarios[dia]?.ativo ? 'bg-white border-gray-300' : 'bg-gray-100 border-gray-200'}`}><div className="flex items-center gap-3"><input type="checkbox" className="w-5 h-5 rounded" style={{ accentColor: formTenant.corPrimaria }} checked={formData.horarios[dia]?.ativo} onChange={(e) => updateHorario(dia, 'ativo', e.target.checked)} /><span className={`font-bold w-20 capitalize ${formData.horarios[dia]?.ativo ? 'text-gray-800' : 'text-gray-400'}`}>{nomesDias[dia]}</span></div>{formData.horarios[dia]?.ativo ? (<div className="flex items-center gap-2"><input type="time" className="border rounded p-1 text-sm" value={formData.horarios[dia]?.inicio} onChange={(e) => updateHorario(dia, 'inicio', e.target.value)} /><span className="text-gray-400">-</span><input type="time" className="border rounded p-1 text-sm" value={formData.horarios[dia]?.fim} onChange={(e) => updateHorario(dia, 'fim', e.target.value)} /></div>) : (<span className="text-xs text-gray-400 uppercase font-bold px-4">Folga</span>)}</div>))}</div>
+                        <button onClick={handleSaveProfile} disabled={saving} className="w-full text-white py-3 rounded-lg font-bold hover:opacity-90" style={{ backgroundColor: formTenant.corPrimaria }}>Salvar Horários</button>
                     </div>
                 )}
                 {abaAtiva === 'senha' && (
