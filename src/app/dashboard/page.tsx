@@ -4,17 +4,19 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { getTheme } from '../../utils/theme'; // Importa o dicionário de temas
 
 export default function Dashboard() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<any>(null);
   const [tenant, setTenant] = useState<any>(null);
   
+  // Estado do Tema (Começa com padrão Salão)
+  const [tema, setTema] = useState(getTheme('SALAO_BELEZA'));
+
   // Dados
   const [todosAgendamentos, setTodosAgendamentos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
-  
-  // Filtros e Visualização
   const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<any[]>([]);
   const [filtroId, setFiltroId] = useState('');
   const [mostrarValores, setMostrarValores] = useState(false);
@@ -66,18 +68,12 @@ export default function Dashboard() {
     filtrarEstatistiscas();
   }, [filtroId, todosAgendamentos]);
 
-  // Pré-seleção do profissional no modal
+  // Pré-seleção Correta
   useEffect(() => {
-    if (modalAberto && usuario) {
-        if (usuario.role === 'PROFISSIONAL') {
-            setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
-        } else if (filtroId && filtroId !== 'todos') {
-            setNovoAgendamento(prev => ({ ...prev, professionalId: filtroId }));
-        } else {
-            setNovoAgendamento(prev => ({ ...prev, professionalId: '' }));
-        }
+    if (modalAberto && usuario && usuario.role === 'PROFISSIONAL') {
+        setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
     }
-  }, [modalAberto, usuario, filtroId]);
+  }, [modalAberto, usuario]);
 
   const fetchDados = async (tenantId: string) => {
     try {
@@ -95,9 +91,15 @@ export default function Dashboard() {
 
       setTenant(dadosTenant);
       
+      // --- APLICA O TEMA DO SALÃO ---
+      setTema(getTheme(dadosTenant.segmento || 'SALAO_BELEZA'));
+      // ------------------------------
+
       const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
+      
       setTodosAgendamentos(ativos);
       setProfissionais(dadosProf);
+
     } catch (error) {
       console.error('Erro ao buscar dados', error);
     } finally {
@@ -134,13 +136,16 @@ export default function Dashboard() {
     const agrupado: any = {};
     todosAgendamentos.forEach((ag: any) => {
       const nome = ag.profissional.nome;
-      if (!agrupado[nome]) agrupado[nome] = { qtd: 0, total: 0 };
+      if (!agrupado[nome]) {
+          agrupado[nome] = { qtd: 0, total: 0 };
+      }
       agrupado[nome].qtd += 1;
       agrupado[nome].total += Number(ag.servico.preco);
     });
 
     const rankingArray = Object.keys(agrupado).map(key => ({
-      nome: key, ...agrupado[key]
+      nome: key,
+      ...agrupado[key]
     })).sort((a, b) => b.total - a.total);
 
     setRanking(rankingArray);
@@ -170,11 +175,10 @@ export default function Dashboard() {
       });
 
       if (res.ok) {
-        alert('Agendamento realizado! 📅');
-        const manterProfissional = (usuario.role === 'PROFISSIONAL' || (filtroId && filtroId !== 'todos')) ? novoAgendamento.professionalId : '';
+        alert('Agendamento realizado! ' + tema.icons.agenda);
         setNovoAgendamento({ 
             nomeCliente: '', telefoneCliente: '', serviceId: '', 
-            professionalId: manterProfissional 
+            professionalId: usuario.role === 'PROFISSIONAL' ? usuario.id : '' 
         });
         setDataSelecionada(''); setHorarioSelecionado('');
         setModalAberto(false);
@@ -225,10 +229,9 @@ export default function Dashboard() {
   const isProfissional = usuario.role === 'PROFISSIONAL';
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
   
-  // --- DEFINIÇÃO DAS CORES (AGORA COM FUNDO) ---
-  const corPrincipal = tenant?.corPrimaria || '#4F46E5'; 
+  // Cores
+  const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant?.corSecundaria || '#F3F4F6';
-  // ---------------------------------------------
 
   let planoLabel = null;
   if (tenant) {
@@ -236,7 +239,7 @@ export default function Dashboard() {
           const dias = Math.ceil((new Date(tenant.trialFim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
           planoLabel = <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold border border-green-300 shadow-sm animate-pulse">💎 Teste: {dias} dias</span>;
       } else if (tenant.plano === 'FREE') {
-          planoLabel = <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Free</span>;
+          planoLabel = <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Plano Free</span>;
       } else {
           planoLabel = <span className="text-xs px-2 py-1 rounded-full font-bold text-white" style={{ backgroundColor: corPrincipal }}>{tenant.plano}</span>;
       }
@@ -255,10 +258,8 @@ export default function Dashboard() {
     </svg>
   );
 
-  // --- AQUI APLICA A COR DE FUNDO ---
   return (
     <div className="min-h-screen pb-20 md:pb-0" style={{ backgroundColor: corFundo }}>
-      {/* ... Resto do HTML (NavBar, Main) ... */}
       <nav className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -266,11 +267,11 @@ export default function Dashboard() {
               <h1 className="text-xl font-bold truncate max-w-[100px] md:max-w-none" style={{ color: corPrincipal }}>{usuario.tenant.nome}</h1>
               <div className="hidden md:block">{planoLabel}</div>
               <div className="hidden md:flex space-x-1 ml-4">
-                <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Agenda</button>
-                <button onClick={() => router.push('/dashboard/calendario')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Calendário</button>
-                <button onClick={() => router.push('/dashboard/servicos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Serviços</button>
-                <button onClick={() => router.push('/dashboard/profissionais')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Equipe</button>
-                <button onClick={() => router.push('/dashboard/clientes')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Clientes</button>
+                <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">{tema.icons.agenda} Agenda</button>
+                <button onClick={() => router.push('/dashboard/calendario')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">🗓️ Mês</button>
+                <button onClick={() => router.push('/dashboard/servicos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">{tema.icons.servico} Serviços</button>
+                <button onClick={() => router.push('/dashboard/profissionais')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">{tema.icons.profissional} Equipe</button>
+                <button onClick={() => router.push('/dashboard/clientes')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">{tema.icons.cliente} Clientes</button>
                 <button onClick={() => router.push('/dashboard/bloqueios')} className="text-red-600 hover:bg-red-50 px-3 py-2 rounded-md text-sm font-medium">Bloqueios</button>
               </div>
             </div>
@@ -284,11 +285,11 @@ export default function Dashboard() {
         </div>
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
           <div className="grid grid-cols-6 divide-x divide-gray-200">
-            <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium hover:bg-gray-100 flex flex-col items-center" style={{ color: corPrincipal }}><span>📅</span> Agenda</button>
+            <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium hover:bg-gray-100 flex flex-col items-center" style={{ color: corPrincipal }}><span>{tema.icons.agenda}</span> Agenda</button>
             <button onClick={() => router.push('/dashboard/calendario')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>🗓️</span> Mês</button>
-            <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>💅</span> Serv</button>
-            <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>👥</span> Eqp</button>
-            <button onClick={() => router.push('/dashboard/clientes')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>👩</span> Cli</button>
+            <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>{tema.icons.servico}</span> Serv</button>
+            <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>{tema.icons.profissional}</span> Eqp</button>
+            <button onClick={() => router.push('/dashboard/clientes')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>{tema.icons.cliente}</span> Cli</button>
             <button onClick={() => router.push('/dashboard/bloqueios')} className="py-3 text-[10px] font-medium text-red-600 hover:bg-red-50 flex flex-col items-center"><span>⛔</span> Bloq</button>
           </div>
           <div className="bg-white border-t border-gray-200 py-1 text-center">{planoLabel}</div>
@@ -297,10 +298,11 @@ export default function Dashboard() {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
+        {/* Filtro e Botão de Agendamento */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <div className="flex items-center gap-3 w-full md:w-auto">
                 <h2 className="text-lg font-bold text-gray-800 whitespace-nowrap">
-                    {filtroId === 'todos' ? 'Visão Geral' : isProfissional ? 'Minha Agenda' : `Agenda de ${profissionais.find(p => p.id === filtroId)?.nome || '...'}`}
+                    {filtroId === 'todos' ? 'Visão Geral' : isProfissional ? `Minha Agenda` : `Agenda de ${profissionais.find(p => p.id === filtroId)?.nome || '...'}`}
                 </h2>
                 <select value={filtroId} onChange={(e) => setFiltroId(e.target.value)} disabled={isProfissional} className={`border border-gray-300 rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 ${isProfissional ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} style={{ borderColor: corPrincipal }}>
                     {!isProfissional && <option value="todos">👀 Ver Todos</option>}
@@ -309,15 +311,17 @@ export default function Dashboard() {
             </div>
 
             <button onClick={() => setModalAberto(true)} className="w-full md:w-auto text-white px-6 py-2 rounded-lg font-bold shadow-md transition-transform active:scale-95 flex items-center justify-center gap-2" style={{ backgroundColor: corPrincipal }}>
-                <span>+</span> Novo Agendamento
+                <span>+</span> {tema.labels.novoAgendamento}
             </button>
         </div>
 
+        {/* Cards Globais */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-white overflow-hidden shadow rounded-lg p-5">
             <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Agendamentos Totais Hoje' : 'Meus Agendamentos Hoje'} ({stats.hoje})</dt>
             <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2"><div className="h-2.5 rounded-full" style={{ width: `${Math.min(stats.hoje * 10, 100)}%`, backgroundColor: corPrincipal }}></div></div>
           </div>
+          
           <div className="bg-white overflow-hidden shadow rounded-lg p-5 relative">
             <div className="flex justify-between items-start">
                 <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Faturamento (Mês)' : 'Meu Faturamento (Mês)'}</dt>
@@ -325,7 +329,9 @@ export default function Dashboard() {
                     {mostrarValores ? <IconEyeOpen /> : <IconEyeClosed />}
                 </button>
             </div>
-            <dd className="mt-1 text-3xl font-semibold text-green-600">{mostrarValores ? `R$ ${stats.faturamento.toFixed(2)}` : 'R$ ••••'}</dd>
+            <dd className="mt-1 text-3xl font-semibold text-green-600 flex items-center gap-2">
+                {tema.icons.dinheiro} {mostrarValores ? `R$ ${stats.faturamento.toFixed(2)}` : 'R$ ••••'}
+            </dd>
           </div>
         </div>
 
@@ -335,6 +341,7 @@ export default function Dashboard() {
                 {loading ? <p>Carregando...</p> : <div className={isDono ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"}>{renderAgendaSemana()}</div>}
             </div>
             
+            {/* Ranking */}
             {isDono && (
                 <div>
                     <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
@@ -352,11 +359,12 @@ export default function Dashboard() {
             )}
         </div>
 
+        {/* Link Público */}
         {isDono && (
             <div className="mt-10 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white order-last md:order-first" style={{ backgroundColor: corPrincipal }}>
                 <div className="mb-3 md:mb-0 text-center md:text-left">
-                    <h3 className="font-bold text-lg">🚀 Divulgue seu Salão!</h3>
-                    <p className="text-white/80 text-sm">Envie este link para seus clientes agendarem sozinhos.</p>
+                    <h3 className="font-bold text-lg">🚀 Divulgue seu Espaço!</h3>
+                    <p className="text-white/80 text-sm">Envie este link para seus {tema.labels.cliente.toLowerCase()}s agendarem sozinhos.</p>
                 </div>
                 <div className="flex items-center gap-2 bg-white/10 p-2 rounded-md border border-white/20 w-full md:w-auto justify-between md:justify-start">
                     <code className="text-xs md:text-sm font-mono truncate max-w-[200px] md:max-w-none">{linkPublico}</code>
@@ -365,16 +373,17 @@ export default function Dashboard() {
             </div>
         )}
 
+        {/* Modal */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-gray-800">Novo Agendamento</h2>
+                        <h2 className="text-xl font-bold text-gray-800">{tema.labels.novoAgendamento}</h2>
                         <button onClick={() => setModalAberto(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
                     </div>
                     <form onSubmit={handleCreate} className="space-y-4">
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Cliente</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase">{tema.labels.cliente}</label>
                             <input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar nome..." />
                             <datalist id="lista-cli-modal">{clientes.map(c => <option key={c.id} value={c.nome} />)}</datalist>
                         </div>
@@ -384,14 +393,14 @@ export default function Dashboard() {
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase">Serviço</label>
+                                <label className="text-xs font-bold text-gray-500 uppercase">{tema.labels.servico}</label>
                                 <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.serviceId} onChange={e => setNovoAgendamento({...novoAgendamento, serviceId: e.target.value})}>
                                     <option value="">Selecione...</option>
                                     {servicos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase">Profissional</label>
+                                <label className="text-xs font-bold text-gray-500 uppercase">{tema.labels.profissional}</label>
                                 <select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.professionalId} onChange={e => setNovoAgendamento({...novoAgendamento, professionalId: e.target.value})}>
                                     <option value="">Selecione...</option>
                                     {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
@@ -411,7 +420,9 @@ export default function Dashboard() {
                                 </select>
                             </div>
                         </div>
-                        <button type="submit" className="w-full text-white py-4 rounded-xl font-bold text-lg shadow-lg mt-4 transition-transform active:scale-95" style={{ backgroundColor: corPrincipal }}>Confirmar Agendamento</button>
+                        <button type="submit" className="w-full text-white py-4 rounded-xl font-bold text-lg shadow-lg mt-4 transition-transform active:scale-95" style={{ backgroundColor: corPrincipal }}>
+                            Confirmar {tema.icons.agenda}
+                        </button>
                     </form>
                 </div>
             </div>
