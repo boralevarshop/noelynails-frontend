@@ -1,4 +1,4 @@
-// src/utils/theme.ts
+// Arquivo 01 - frontend/src/utils/theme.ts
 
 export const TEMAS: any = {
   SALAO_BELEZA: {
@@ -7,7 +7,8 @@ export const TEMAS: any = {
       profissional: '💇‍♀️',
       agenda: '📅',
       cliente: '👩',
-      dinheiro: '💰'
+      dinheiro: '💰',
+      horario: '⏰'
     },
     labels: {
       profissional: 'Profissional',
@@ -22,7 +23,8 @@ export const TEMAS: any = {
       profissional: '💈',
       agenda: '📅',
       cliente: '🧔',
-      dinheiro: '💵'
+      dinheiro: '💵',
+      horario: '⌚'
     },
     labels: {
       profissional: 'Barbeiro',
@@ -37,7 +39,8 @@ export const TEMAS: any = {
       profissional: '👨‍⚕️',
       agenda: '🏥',
       cliente: '🤕',
-      dinheiro: '💳'
+      dinheiro: '💳',
+      horario: '🕒'
     },
     labels: {
       profissional: 'Especialista',
@@ -52,12 +55,13 @@ export const TEMAS: any = {
       profissional: '🧖‍♀️',
       agenda: '📅',
       cliente: '👩',
-      dinheiro: '💎'
+      dinheiro: '💎',
+      horario: '⏳'
     },
     labels: {
       profissional: 'Esteticista',
       cliente: 'Cliente',
-      servico: 'Procedimento',
+      servico: 'Tratamento',
       novoAgendamento: 'Agendar'
     }
   },
@@ -67,7 +71,8 @@ export const TEMAS: any = {
       profissional: '✂️',
       agenda: '🐾',
       cliente: '🐶',
-      dinheiro: '🦴'
+      dinheiro: '🦴',
+      horario: '⏰'
     },
     labels: {
       profissional: 'Atendente',
@@ -82,7 +87,8 @@ export const TEMAS: any = {
       profissional: '💉',
       agenda: '🤘',
       cliente: '😎',
-      dinheiro: '💸'
+      dinheiro: '💸',
+      horario: '⌚'
     },
     labels: {
       profissional: 'Tatuador',
@@ -97,7 +103,8 @@ export const TEMAS: any = {
       profissional: '👔',
       agenda: '📅',
       cliente: '👤',
-      dinheiro: '💲'
+      dinheiro: '💲',
+      horario: '🕒'
     },
     labels: {
       profissional: 'Consultor',
