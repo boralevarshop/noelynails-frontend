@@ -118,7 +118,13 @@ export default function BloqueiosPage() {
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Bloqueios de Agenda</h1>
-          <button onClick={() => router.push('/dashboard')} className="text-gray-600 hover:text-gray-900">← Voltar</button>
+          <button 
+                onClick={() => router.push('/dashboard')} 
+                className="px-4 py-2 rounded-lg font-bold border-2 transition-colors flex items-center gap-2 hover:bg-gray-50"
+                style={{ backgroundColor: "#f40707ff", borderColor: "#fff", color: "#fff"}}
+             >
+                <span>←</span> Voltar
+             </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
