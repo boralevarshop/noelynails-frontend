@@ -83,6 +83,7 @@ export default function Dashboard() {
   const fetchDados = async (tenantId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      
       const [resAgenda, resProf, resTenant] = await Promise.all([
         fetch(`${apiUrl}/appointments/tenant/${tenantId}`),
         fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
@@ -94,7 +95,6 @@ export default function Dashboard() {
       const dadosTenant = await resTenant.json();
 
       setTenant(dadosTenant);
-      // Aplica o tema (ícones) baseado no segmento
       setTema(getTheme(dadosTenant.segmento || 'SALAO_BELEZA'));
       
       const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
@@ -167,7 +167,8 @@ export default function Dashboard() {
         body: JSON.stringify({
           ...novoAgendamento,
           tenantId: usuario.tenant.id,
-          dataHora: dataHoraCombinada.toISOString()
+          dataHora: dataHoraCombinada.toISOString(),
+          isInternal: true // Bypass regra de 4h
         })
       });
 
@@ -207,13 +208,28 @@ export default function Dashboard() {
           </h3>
           {agendamentosDoDia.length === 0 ? <p className="text-xs text-gray-400 italic text-center py-4">Livre</p> : (
             <ul className="space-y-2">
-              {agendamentosDoDia.map((ag: any) => (
-                <li key={ag.id} className="text-sm p-2 rounded border-l-4 bg-gray-50" style={{ borderLeftColor: corPrincipal }}>
-                  <strong className="block text-gray-800">{new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
-                  <p className="truncate font-medium text-gray-700">{ag.cliente.nome}</p>
-                  {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-500">{ag.profissional.nome}</p>}
-                </li>
-              ))}
+              {agendamentosDoDia.map((ag: any) => {
+                const telLimpo = ag.cliente.telefone ? ag.cliente.telefone.replace(/\D/g, '') : '';
+                
+                return (
+                  <li key={ag.id} className="text-sm p-2 rounded border-l-4 bg-gray-50" style={{ borderLeftColor: corPrincipal }}>
+                    <strong className="block text-gray-800">{new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
+                    
+                    {/* NOME CLICÁVEL PARA WHATSAPP */}
+                    <a 
+                        href={telLimpo ? `https://wa.me/55${telLimpo}` : '#'} 
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`truncate font-medium block ${telLimpo ? 'text-blue-600 hover:underline' : 'text-gray-700'}`}
+                        title={telLimpo ? 'Abrir WhatsApp' : 'Sem telefone'}
+                    >
+                        {ag.cliente.nome} {telLimpo && <span className="text-[10px]">🔗</span>}
+                    </a>
+
+                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-500">{ag.profissional.nome}</p>}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -369,7 +385,6 @@ export default function Dashboard() {
             </div>
         )}
 
-        {/* MODAL */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -406,7 +421,7 @@ export default function Dashboard() {
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Data</label>
-                                <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} min={new Date().toISOString().split('T')[0]} onChange={e => setDataSelecionada(e.target.value)} />
+                                <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} />
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Hora</label>
