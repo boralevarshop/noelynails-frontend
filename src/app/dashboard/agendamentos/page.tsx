@@ -19,6 +19,10 @@ export default function AgendamentosPage() {
   const [abaAtiva, setAbaAtiva] = useState<'proximos' | 'historico'>('proximos');
   const [modalAberto, setModalAberto] = useState(false);
 
+  // --- NOVO: ESTADO DA BUSCA ---
+  const [busca, setBusca] = useState('');
+  // -----------------------------
+
   // Formulário
   const [dataSelecionada, setDataSelecionada] = useState('');
   const [horarioSelecionado, setHorarioSelecionado] = useState('');
@@ -54,10 +58,7 @@ export default function AgendamentosPage() {
     if (usuario && profissionais.length > 0) {
         const souProfissional = profissionais.find(p => p.id === usuario.id);
         if (souProfissional) {
-            setNovoAgendamento(prev => ({
-                ...prev,
-                professionalId: usuario.id
-            }));
+            setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
         }
     }
   }, [usuario, profissionais, modalAberto]);
@@ -143,12 +144,23 @@ export default function AgendamentosPage() {
     if (cli) setNovoAgendamento(prev => ({ ...prev, nomeCliente: val, telefoneCliente: cli.telefone }));
   };
 
+  // --- FILTRO ATUALIZADO COM BUSCA ---
   const getListaFiltrada = () => {
     return agendamentos.filter(a => {
-        if (abaAtiva === 'proximos') return a.status === 'CONFIRMADO';
-        else return a.status === 'CANCELADO' || a.status === 'CONCLUIDO';
+        // 1. Filtro por Aba (Status)
+        const statusMatch = abaAtiva === 'proximos' 
+            ? a.status === 'CONFIRMADO' 
+            : a.status === 'CANCELADO' || a.status === 'CONCLUIDO';
+
+        // 2. Filtro por Busca (Nome ou Telefone)
+        const termo = busca.toLowerCase();
+        const buscaMatch = a.cliente.nome.toLowerCase().includes(termo) || 
+                           (a.cliente.telefone && a.cliente.telefone.includes(termo));
+
+        return statusMatch && buscaMatch;
     });
   };
+  // -----------------------------------
 
   const agruparPorData = (lista: any[]) => {
     const grupos: any = {};
@@ -172,7 +184,6 @@ export default function AgendamentosPage() {
       {/* Cabeçalho Responsivo */}
       <div className="bg-white shadow-sm sticky top-0 z-20 px-6 py-4 flex justify-between items-center">
          <div className="flex items-center gap-4">
-             
              {/* BOTÃO VOLTAR */}
              <button 
                 onClick={() => router.push('/dashboard')} 
@@ -181,7 +192,6 @@ export default function AgendamentosPage() {
              >
                 <span>←</span> Voltar ao Painel
              </button>
-
              <h1 className="text-xl font-bold text-gray-800 hidden md:block">Agenda Inteligente</h1>
          </div>
 
@@ -194,28 +204,41 @@ export default function AgendamentosPage() {
             + Novo Agendamento
          </button>
 
-         {/* Título Mobile */}
-         <h1 className="text-lg font-bold text-gray-800 md:hidden">Agenda</h1>
+         <h1 className="text-lg font-bold md:hidden" style={{ color: '#1F2937' }}>Agenda</h1>
       </div>
 
       <div className="max-w-5xl mx-auto p-4 md:p-6">
         
-        {/* Abas */}
-        <div className="flex bg-white p-1 rounded-xl shadow-sm mb-8 border border-gray-200 max-w-md mx-auto md:mx-0">
-            <button 
-                onClick={() => setAbaAtiva('proximos')}
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${abaAtiva === 'proximos' ? 'text-white shadow' : 'text-gray-500 hover:bg-gray-50'}`}
-                style={abaAtiva === 'proximos' ? { backgroundColor: corPrincipal } : {}}
-            >
-                📅 Próximos
-            </button>
-            <button 
-                onClick={() => setAbaAtiva('historico')}
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${abaAtiva === 'historico' ? 'text-white shadow' : 'text-gray-500 hover:bg-gray-50'}`}
-                style={abaAtiva === 'historico' ? { backgroundColor: corPrincipal } : {}}
-            >
-                📜 Histórico
-            </button>
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            {/* Abas */}
+            <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 w-full md:w-auto">
+                <button 
+                    onClick={() => setAbaAtiva('proximos')}
+                    className={`flex-1 px-6 py-2 text-sm font-bold rounded-lg transition-all ${abaAtiva === 'proximos' ? 'text-white shadow' : 'text-gray-500 hover:bg-gray-50'}`}
+                    style={abaAtiva === 'proximos' ? { backgroundColor: corPrincipal } : {}}
+                >
+                    📅 Próximos
+                </button>
+                <button 
+                    onClick={() => setAbaAtiva('historico')}
+                    className={`flex-1 px-6 py-2 text-sm font-bold rounded-lg transition-all ${abaAtiva === 'historico' ? 'text-white shadow' : 'text-gray-500 hover:bg-gray-50'}`}
+                    style={abaAtiva === 'historico' ? { backgroundColor: corPrincipal } : {}}
+                >
+                    📜 Histórico
+                </button>
+            </div>
+
+            {/* CAMPO DE BUSCA (NOVO) */}
+            <div className="w-full md:w-64">
+                <input 
+                    type="text" 
+                    placeholder="🔍 Buscar cliente..." 
+                    className="w-full border rounded-lg px-4 py-2 outline-none focus:ring-2 bg-white shadow-sm"
+                    style={{ '--tw-ring-color': corPrincipal } as any}
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                />
+            </div>
         </div>
 
         {/* Lista */}
@@ -224,7 +247,9 @@ export default function AgendamentosPage() {
                 {Object.keys(listaAgrupada).length === 0 && (
                     <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
                         <p className="text-4xl mb-2">📅</p>
-                        <p className="text-gray-500">Nenhum agendamento encontrado nesta aba.</p>
+                        <p className="text-gray-500">
+                            {busca ? 'Nenhum agendamento encontrado para essa busca.' : 'Nenhum agendamento encontrado nesta aba.'}
+                        </p>
                     </div>
                 )}
 
@@ -355,7 +380,7 @@ export default function AgendamentosPage() {
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Data</label>
-                            <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} min={new Date().toISOString().split('T')[0]} onChange={e => setDataSelecionada(e.target.value)} />
+                            <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} />
                         </div>
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Hora</label>
