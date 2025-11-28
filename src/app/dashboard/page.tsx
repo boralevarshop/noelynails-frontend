@@ -304,7 +304,32 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               {usuario.role === 'ADMIN_GLOBAL' && <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black shadow-sm">👑 ADMIN</button>}
               <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full border bg-white" style={{ color: corPrincipal, borderColor: corPrincipal }}>💎</button>
-              <button onClick={() => router.push('/dashboard/perfil')} className="flex items-center gap-2 text-gray-700 transition-colors group"><div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold bg-gray-100" style={{ color: corPrincipal }}>{usuario.nome.charAt(0).toUpperCase()}</div></button>
+              <button 
+  onClick={() => router.push('/dashboard/perfil')} 
+  className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
+  title="Meu Perfil"
+>
+  {/* Avatar: Foto ou Inicial */}
+  <div className="h-9 w-9 rounded-full overflow-hidden border-2 flex items-center justify-center bg-gray-100 shadow-sm" style={{ borderColor: corPrincipal }}>
+      {usuario.avatarUrl ? (
+          <img src={usuario.avatarUrl} alt={usuario.nome} className="h-full w-full object-cover" />
+      ) : (
+          <span className="text-xs font-bold" style={{ color: corPrincipal }}>
+              {usuario.nome.charAt(0).toUpperCase()}
+          </span>
+      )}
+  </div>
+  
+  {/* Nome (Apenas Desktop) */}
+  <div className="hidden md:flex flex-col items-start text-sm">
+      <span className="font-bold text-gray-700 leading-tight">
+          {usuario.nome.split(' ')[0]}
+      </span>
+      <span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold">
+          {usuario.role === 'DONO_SALAO' ? 'Dono' : 'Pro'}
+      </span>
+  </div>
+</button>
               <button onClick={() => { localStorage.removeItem('usuario_saas'); router.push('/login'); }} className="text-sm text-red-600 hover:text-red-800 font-semibold px-2">Sair</button>
             </div>
           </div>
