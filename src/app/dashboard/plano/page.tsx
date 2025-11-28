@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { QRCodeSVG } from 'qrcode.react'; // Vamos usar uma lib leve, se não tiver, usaremos texto puro
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function PlanoPage() {
   const router = useRouter();
@@ -19,6 +19,14 @@ export default function PlanoPage() {
     if (!dadosSalvos) { router.push('/login'); return; }
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
+
+    // --- TRAVA DE SEGURANÇA: SÓ DONO ACESSA ---
+    if (user.role !== 'DONO_SALAO' && user.role !== 'ADMIN_GLOBAL') {
+        alert('Acesso restrito! Apenas o dono do salão pode gerenciar a assinatura.');
+        router.push('/dashboard');
+        return;
+    }
+    // -------------------------------------------
     
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/tenants/${user.tenant.id}`)
         .then(res => res.json())
@@ -124,13 +132,7 @@ export default function PlanoPage() {
                 )}
             </p>
           </div>
-          <button 
-                onClick={() => router.push('/dashboard')} 
-                className="px-4 py-2 rounded-lg font-bold border-2 transition-colors flex items-center gap-2 hover:bg-gray-50"
-                style={{ backgroundColor: corPrincipal, borderColor: "#fff", color: "#fff"}}
-             >
-                <span>←</span> Voltar ao Painel
-             </button>
+          <button onClick={() => router.push('/dashboard')} className="text-gray-600 hover:text-gray-900">← Voltar</button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -186,10 +188,15 @@ export default function PlanoPage() {
                     <h3 className="text-xl font-bold text-gray-800 mb-2">Pagamento via Pix 💸</h3>
                     <p className="text-sm text-gray-500 mb-4">Pague para liberar seu acesso imediatamente.</p>
                     
+                    {/* QR CODE */}
+                    <div className="flex justify-center my-4">
+                        <QRCodeSVG value={dadosPix.code} size={200} />
+                    </div>
+
                     <div className="bg-gray-100 p-4 rounded mb-4 break-all">
                         <p className="text-xs text-gray-500 mb-1">Link da Fatura:</p>
                         <a href={dadosPix.url} target="_blank" className="text-blue-600 font-bold text-sm underline">
-                            Clique aqui para abrir o Pix/Boleto
+                            Clique aqui para abrir o Boleto/Pix no Asaas
                         </a>
                     </div>
 
