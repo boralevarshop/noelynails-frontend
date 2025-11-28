@@ -168,7 +168,7 @@ export default function Dashboard() {
           ...novoAgendamento,
           tenantId: usuario.tenant.id,
           dataHora: dataHoraCombinada.toISOString(),
-          isInternal: true // Bypass regra de 4h
+          isInternal: true
         })
       });
 
@@ -209,26 +209,25 @@ export default function Dashboard() {
           {agendamentosDoDia.length === 0 ? <p className="text-xs text-gray-400 italic text-center py-4">Livre</p> : (
             <ul className="space-y-2">
               {agendamentosDoDia.map((ag: any) => {
+                // Limpeza do telefone para o link do WhatsApp
                 const telLimpo = ag.cliente.telefone ? ag.cliente.telefone.replace(/\D/g, '') : '';
-                
+
                 return (
                   <li key={ag.id} className="text-sm p-2 rounded border-l-4 bg-gray-50" style={{ borderLeftColor: corPrincipal }}>
                     <strong className="block text-gray-800">{new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
                     
+                    {/* NOME + ÍCONE ZAP */}
                     <div className="flex items-center gap-1">
-                        {/* NOME COMO TEXTO SIMPLES */}
                         <span className="truncate font-medium text-gray-700 block">
                             {ag.cliente.nome}
                         </span>
-
-                        {/* ÍCONE DO WHATSAPP CLICÁVEL AO LADO */}
                         {telLimpo && (
                             <a 
                                 href={`https://wa.me/55${telLimpo}`} 
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-green-500 hover:text-green-600 transition-colors p-0.5"
-                                title="Abrir WhatsApp"
+                                title="Chamar no WhatsApp"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"> <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM8.003 14.527a6.56 6.56 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/> </svg>
                             </a>
@@ -304,32 +303,36 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               {usuario.role === 'ADMIN_GLOBAL' && <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black shadow-sm">👑 ADMIN</button>}
               <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full border bg-white" style={{ color: corPrincipal, borderColor: corPrincipal }}>💎</button>
+              
+              {/* BOTÃO DE PERFIL MELHORADO (Correção aplicada) */}
               <button 
-  onClick={() => router.push('/dashboard/perfil')} 
-  className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
-  title="Meu Perfil"
->
-  {/* Avatar: Foto ou Inicial */}
-  <div className="h-9 w-9 rounded-full overflow-hidden border-2 flex items-center justify-center bg-gray-100 shadow-sm" style={{ borderColor: corPrincipal }}>
-      {usuario.avatarUrl ? (
-          <img src={usuario.avatarUrl} alt={usuario.nome} className="h-full w-full object-cover" />
-      ) : (
-          <span className="text-xs font-bold" style={{ color: corPrincipal }}>
-              {usuario.nome.charAt(0).toUpperCase()}
-          </span>
-      )}
-  </div>
-  
-  {/* Nome (Apenas Desktop) */}
-  <div className="hidden md:flex flex-col items-start text-sm">
-      <span className="font-bold text-gray-700 leading-tight">
-          {usuario.nome.split(' ')[0]}
-      </span>
-      <span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold">
-          {usuario.role === 'DONO_SALAO' ? 'Dono' : 'Pro'}
-      </span>
-  </div>
-</button>
+                  onClick={() => router.push('/dashboard/perfil')} 
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
+                  title="Meu Perfil"
+                >
+                  {/* Avatar: Foto ou Inicial */}
+                  <div className="h-9 w-9 rounded-full overflow-hidden border-2 flex items-center justify-center bg-gray-100 shadow-sm" style={{ borderColor: corPrincipal }}>
+                      {usuario.avatarUrl ? (
+                          <img src={usuario.avatarUrl} alt={usuario.nome} className="h-full w-full object-cover" />
+                      ) : (
+                          <span className="text-xs font-bold" style={{ color: corPrincipal }}>
+                              {usuario.nome.charAt(0).toUpperCase()}
+                          </span>
+                      )}
+                  </div>
+                  
+                  {/* Nome (Apenas Desktop) */}
+                  <div className="flex flex-col items-start text-sm">
+                      <span className="font-bold text-gray-700 leading-tight">
+                          {usuario.nome.split(' ')[0]}
+                      </span>
+                      {/* Escondi o cargo no mobile pra não quebrar */}
+                      <span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold hidden md:block">
+                          {usuario.role === 'DONO_SALAO' ? 'Dono' : 'Pro'}
+                      </span>
+                  </div>
+              </button>
+
               <button onClick={() => { localStorage.removeItem('usuario_saas'); router.push('/login'); }} className="text-sm text-red-600 hover:text-red-800 font-semibold px-2">Sair</button>
             </div>
           </div>
@@ -348,6 +351,9 @@ export default function Dashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {/* ... Resto do conteúdo do dashboard (Filtros, Cards, Agenda) ... */}
+        {/* Para não repetir 300 linhas, o conteúdo interno é igual ao que te mandei antes */}
+        {/* Vou colar a parte principal do render para garantir que está tudo aqui */}
         
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <div className="flex items-center gap-3 w-full md:w-auto">
@@ -359,7 +365,6 @@ export default function Dashboard() {
                     {profissionais.map(prof => (<option key={prof.id} value={prof.id}>{prof.id === usuario.id ? '👤 Minha Agenda' : `👤 ${prof.nome}`}</option>))}
                 </select>
             </div>
-
             <button onClick={() => setModalAberto(true)} className="w-full md:w-auto text-white px-6 py-2 rounded-lg font-bold shadow-md transition-transform active:scale-95 flex items-center justify-center gap-2" style={{ backgroundColor: corPrincipal, color: corTexto }}>
                 <span>+</span> {tema.labels.novoAgendamento}
             </button>
@@ -370,7 +375,6 @@ export default function Dashboard() {
             <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Agendamentos Totais Hoje' : 'Meus Agendamentos Hoje'} ({stats.hoje})</dt>
             <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2"><div className="h-2.5 rounded-full" style={{ width: `${Math.min(stats.hoje * 10, 100)}%`, backgroundColor: corPrincipal }}></div></div>
           </div>
-          
           <div className="shadow rounded-lg p-5 relative" style={{ backgroundColor: corTerciaria }}>
             <div className="flex justify-between items-start">
                 <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Faturamento (Mês)' : 'Meu Faturamento (Mês)'}</dt>
@@ -419,6 +423,7 @@ export default function Dashboard() {
             </div>
         )}
 
+        {/* Modal */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -455,7 +460,7 @@ export default function Dashboard() {
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Data</label>
-                                <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} />
+                                <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} min={new Date().toISOString().split('T')[0]} onChange={e => setDataSelecionada(e.target.value)} />
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Hora</label>
