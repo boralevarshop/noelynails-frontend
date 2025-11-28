@@ -13,6 +13,10 @@ export default function PerfilPage() {
   const [todosServicos, setTodosServicos] = useState<any[]>([]);
   const [abaAtiva, setAbaAtiva] = useState('dados');
 
+  // --- NOVO: CONTROLE DO MODAL DE AVATAR ---
+  const [modalAvatarAberto, setModalAvatarAberto] = useState(false);
+  // -----------------------------------------
+
   const [formData, setFormData] = useState({
     nome: '', telefone: '', bio: '', instagram: '', avatarUrl: '',
     aparecerNoSite: true, servicosIds: [] as string[], horarios: {} as any
@@ -20,10 +24,7 @@ export default function PerfilPage() {
 
   const [formTenant, setFormTenant] = useState({
     nome: '', slug: '', telefone: '',
-    corPrimaria: '#4F46E5', 
-    corSecundaria: '#F3F4F6',
-    corTerciaria: '#FFFFFF',
-    corTexto: '#FFFFFF', // <--- NOVO
+    corPrimaria: '#4F46E5', corSecundaria: '#F3F4F6', corTerciaria: '#FFFFFF', corTexto: '#FFFFFF',
     agendamentoOnline: true, segmento: 'SALAO_BELEZA'
   });
 
@@ -31,12 +32,44 @@ export default function PerfilPage() {
 
   const diasSemana = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
   const nomesDias: any = { seg: 'Segunda', ter: 'Terça', qua: 'Quarta', qui: 'Quinta', sex: 'Sexta', sab: 'Sábado', dom: 'Domingo' };
+  
   const segmentos = [
-    { id: 'SALAO_BELEZA', label: '💇‍♀️ Salão de Beleza' }, { id: 'BARBEARIA', label: '💈 Barbearia' },
-    { id: 'CLINICA', label: '🏥 Clínica' }, { id: 'ESTETICA', label: '✨ Estética' },
-    { id: 'PETSHOP', label: '🐶 Petshop' }, { id: 'ESTUDIO_TATTOO', label: '🎨 Tattoo' },
+    { id: 'SALAO_BELEZA', label: '💇‍♀️ Salão de Beleza' }, 
+    { id: 'BARBEARIA', label: '💈 Barbearia' },
+    { id: 'CLINICA', label: '🏥 Clínica' }, 
+    { id: 'ESTETICA', label: '✨ Estética' },
+    { id: 'PETSHOP', label: '🐶 Petshop' }, 
+    { id: 'ESTUDIO_TATTOO', label: '🎨 Tattoo' },
     { id: 'SERVICOS_GERAIS', label: '🏢 Geral' }
   ];
+
+  // --- LISTA DE AVATARES (LINKS PRONTOS) ---
+  const AVATARES: any = {
+      SALAO_BELEZA: [
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica&backgroundColor=ffdfbf',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Lola&backgroundColor=b6e3f4',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Annie&backgroundColor=c0aede',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Betty&backgroundColor=d1d4f9',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Cuddles&backgroundColor=ffdfbf',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Sara&backgroundColor=ffd5dc'
+      ],
+      BARBEARIA: [
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=c0aede',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack&backgroundColor=b6e3f4',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka&backgroundColor=ffdfbf', // Estilo curto
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob&backgroundColor=d1d4f9',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Trouble&backgroundColor=c0aede',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Shadow&backgroundColor=b6e3f4'
+      ],
+      GERAL: [
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Midnight&backgroundColor=b6e3f4',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Bubba&backgroundColor=ffdfbf',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Callie&backgroundColor=c0aede',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Leo&backgroundColor=d1d4f9',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Sassy&backgroundColor=ffd5dc',
+          'https://api.dicebear.com/7.x/avataaars/svg?seed=Misty&backgroundColor=b6e3f4'
+      ]
+  };
 
   useEffect(() => {
     const dadosSalvos = localStorage.getItem('usuario_saas');
@@ -74,8 +107,9 @@ export default function PerfilPage() {
             corPrimaria: dadosTenant.corPrimaria || '#4F46E5', 
             corSecundaria: dadosTenant.corSecundaria || '#F3F4F6',
             corTerciaria: dadosTenant.corTerciaria || '#FFFFFF',
-            corTexto: dadosTenant.corTexto || '#FFFFFF', // Carrega do banco
-            agendamentoOnline: dadosTenant.agendamentoOnline !== false, segmento: dadosTenant.segmento || 'SALAO_BELEZA'
+            corTexto: dadosTenant.corTexto || '#FFFFFF',
+            agendamentoOnline: dadosTenant.agendamentoOnline !== false, 
+            segmento: dadosTenant.segmento || 'SALAO_BELEZA'
         });
     } catch (error) { console.error(error); } finally { setLoading(false); }
   };
@@ -96,6 +130,7 @@ export default function PerfilPage() {
             alert('Perfil atualizado!');
             const userLocal = JSON.parse(localStorage.getItem('usuario_saas') || '{}');
             userLocal.nome = formData.nome;
+            if (formData.avatarUrl) userLocal.avatarUrl = formData.avatarUrl; 
             localStorage.setItem('usuario_saas', JSON.stringify(userLocal));
             window.location.reload();
         } else alert('Erro.');
@@ -111,7 +146,7 @@ export default function PerfilPage() {
             body: JSON.stringify(formTenant)
         });
         if (res.ok) {
-            alert('Layout salvo com sucesso!');
+            alert('Layout salvo!');
             const userLocal = JSON.parse(localStorage.getItem('usuario_saas') || '{}');
             userLocal.tenant.nome = formTenant.nome; userLocal.tenant.slug = formTenant.slug;
             localStorage.setItem('usuario_saas', JSON.stringify(userLocal));
@@ -147,6 +182,14 @@ export default function PerfilPage() {
     } catch (error) { alert('Erro de conexão.'); }
   };
 
+  // Seleciona qual lista de avatares mostrar
+  const getListaAvatares = () => {
+      const seg = formTenant.segmento;
+      if (seg === 'SALAO_BELEZA' || seg === 'ESTETICA') return AVATARES.SALAO_BELEZA;
+      if (seg === 'BARBEARIA' || seg === 'ESTUDIO_TATTOO') return AVATARES.BARBEARIA;
+      return AVATARES.GERAL;
+  };
+
   if (loading) return <div className="p-10 text-center">Carregando perfil...</div>;
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
 
@@ -156,19 +199,35 @@ export default function PerfilPage() {
         
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Meu Perfil</h1>
-          <button 
-                onClick={() => router.push('/dashboard')} 
-                className="px-4 py-2 rounded-lg font-bold border-2 transition-colors flex items-center gap-2 hover:bg-gray-50"
-                style={{ backgroundColor: formTenant.corPrimaria, borderColor: "#fff", color: "#fff"}}
-             >
-                <span>←</span> Voltar
-             </button>
+          <button onClick={() => router.push('/dashboard')} className="text-gray-600 hover:text-gray-900">← Voltar</button>
         </div>
         <div className="bg-white rounded-xl shadow overflow-hidden">
+            
+            {/* CABEÇALHO COM SELETOR DE AVATAR */}
             <div className="p-6 flex items-center gap-6" style={{ backgroundColor: tenant?.corPrimaria || '#4F46E5', color: tenant?.corTexto || '#FFFFFF' }}>
-                <div className="h-20 w-20 rounded-full border-4 border-white bg-white/20 flex items-center justify-center text-3xl font-bold">{usuario.nome.charAt(0).toUpperCase()}</div>
-                <div><h2 className="text-2xl font-bold">{usuario.nome}</h2><p className="opacity-90">{usuario.email}</p><span className="text-xs bg-white/20 px-2 py-1 rounded mt-2 inline-block uppercase tracking-wider">{usuario.role.replace('_', ' ')}</span></div>
+                
+                <div 
+                    className="h-20 w-20 rounded-full border-4 border-white bg-white/20 flex items-center justify-center text-3xl font-bold cursor-pointer overflow-hidden relative group"
+                    onClick={() => setModalAvatarAberto(true)}
+                    title="Clique para escolher um avatar"
+                >
+                    {formData.avatarUrl ? (
+                        <img src={formData.avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                    ) : (
+                        <span>{usuario.nome.charAt(0).toUpperCase()}</span>
+                    )}
+                    <div className="absolute inset-0 bg-black/30 hidden group-hover:flex items-center justify-center">
+                        <span className="text-xs font-bold text-white">EDITAR</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 className="text-2xl font-bold">{usuario.nome}</h2>
+                    <p className="opacity-90">{usuario.email}</p>
+                    <span className="text-xs bg-white/20 px-2 py-1 rounded mt-2 inline-block uppercase tracking-wider">{usuario.role.replace('_', ' ')}</span>
+                </div>
             </div>
+
             <div className="flex border-b border-gray-200 overflow-x-auto">
                 {['dados', 'servicos', 'horarios', 'senha'].map(aba => (
                     <button key={aba} onClick={() => setAbaAtiva(aba)} className={`flex-1 py-4 px-4 text-sm font-medium border-b-2 whitespace-nowrap ${abaAtiva === aba ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
@@ -179,7 +238,6 @@ export default function PerfilPage() {
             </div>
             <div className="p-6">
                 
-                {/* ABA DADOS */}
                 {abaAtiva === 'dados' && (
                     <form onSubmit={handleSaveProfile} className="space-y-5 max-w-lg">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -196,7 +254,6 @@ export default function PerfilPage() {
                     </form>
                 )}
 
-                {/* ABA SALÃO (COM 4 CORES) */}
                 {abaAtiva === 'salao' && isDono && (
                     <form onSubmit={handleSaveTenant} className="space-y-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -205,7 +262,7 @@ export default function PerfilPage() {
                                 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Primária (Botões/Topo)</label>
+                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Primária (Botões)</label>
                                         <div className="flex gap-2"><input type="color" className="h-10 w-10 rounded cursor-pointer border-0" value={formTenant.corPrimaria} onChange={e => setFormTenant({...formTenant, corPrimaria: e.target.value})} /><input type="text" className="w-full border rounded-lg p-2.5 uppercase text-sm" value={formTenant.corPrimaria} onChange={e => setFormTenant({...formTenant, corPrimaria: e.target.value})} /></div>
                                     </div>
                                     <div>
@@ -258,7 +315,8 @@ export default function PerfilPage() {
                     </form>
                 )}
 
-                {/* ABA SERVIÇOS */}
+                {/* OUTRAS ABAS... (Serviços, Horários, Senha - Manter o código anterior) */}
+                {/* Vou repetir o bloco de serviços/horários/senha para não quebrar o arquivo */}
                 {abaAtiva === 'servicos' && (
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{todosServicos.map(serv => (<div key={serv.id} onClick={() => toggleServico(serv.id)} className={`p-3 rounded-lg border-2 cursor-pointer flex items-center gap-3 ${formData.servicosIds.includes(serv.id) ? 'bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`} style={formData.servicosIds.includes(serv.id) ? { borderColor: tenant?.corPrimaria } : {}}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.servicosIds.includes(serv.id) ? '' : 'bg-white border-gray-400'}`} style={formData.servicosIds.includes(serv.id) ? { backgroundColor: tenant?.corPrimaria, borderColor: tenant?.corPrimaria } : {}}>{formData.servicosIds.includes(serv.id) && <span className="text-white text-xs">✓</span>}</div><div><p className="font-bold text-gray-800">{serv.nome}</p></div></div>))}</div>
@@ -280,6 +338,34 @@ export default function PerfilPage() {
                 )}
             </div>
         </div>
+
+        {/* --- MODAL DE SELEÇÃO DE AVATAR --- */}
+        {modalAvatarAberto && (
+            <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-bold text-gray-800">Escolha seu Avatar</h3>
+                        <button onClick={() => setModalAvatarAberto(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto p-2">
+                        {getListaAvatares().map((url: string, i: number) => (
+                            <div 
+                                key={i} 
+                                onClick={() => {
+                                    setFormData(prev => ({ ...prev, avatarUrl: url }));
+                                    setModalAvatarAberto(false);
+                                }}
+                                className={`rounded-full border-4 cursor-pointer hover:scale-105 transition-transform ${formData.avatarUrl === url ? 'border-green-500' : 'border-transparent hover:border-gray-200'}`}
+                            >
+                                <img src={url} alt={`Avatar ${i}`} className="w-full h-full rounded-full bg-gray-100" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )}
+
       </div>
     </div>
   );
