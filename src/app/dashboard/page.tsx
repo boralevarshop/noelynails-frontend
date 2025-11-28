@@ -235,7 +235,7 @@ export default function Dashboard() {
                         )}
                     </div>
 
-                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-500">{ag.profissional.nome}</p>}
+                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-500">{ag.profissional.nome.split(' ')[0]}</p>}
                   </li>
                 );
               })}
