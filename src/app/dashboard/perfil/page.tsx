@@ -46,36 +46,91 @@ export default function PerfilPage() {
   // --- LISTA DE AVATARES (LINKS PRONTOS) ---
   const AVATARES: any = {
       SALAO_BELEZA: [
-          'https://api.dicebear.com/9.x/lorelei/svg?seed=Maria',
-          'https://api.dicebear.com/9.x/lorelei/svg?seed=Sasha',
-          'https://api.dicebear.com/9.x/lorelei/svg?seed=Amara',
-          'https://api.dicebear.com/9.x/lorelei/svg?seed=Jade',
-          'https://api.dicebear.com/9.x/lorelei/svg?seed=Sara',
-          'https://api.dicebear.com/9.x/lorelei/svg?seed=Kylie'
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388610/avatar_099_i8dixo.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388607/avatar_098_zemerc.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388605/avatar_097_szfiq6.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388605/avatar_096_ol9amp.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388602/avatar_095_lcujro.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388599/avatar_092_ovm9r1.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388595/avatar_090_slwxw4.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388597/avatar_091_iq7sks.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388600/avatar_094_oayiqo.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388600/avatar_093_mplttc.png'
       ],
       BARBEARIA: [
-          'https://api.dicebear.com/9.x/avataaars/svg?seed=Jack&eyebrows=default&eyes=default&mouth=default&facialHair=beardMedium',
-          'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix&facialHair=beardMajestic',
-          'https://api.dicebear.com/9.x/avataaars/svg?seed=Christopher&facialHair=moustacheFancy',
-          'https://api.dicebear.com/9.x/avataaars/svg?seed=Dylan&facialHair=beardLight',
-          'https://api.dicebear.com/9.x/avataaars/svg?seed=Aidan&facialHair=beardMagestic',
-          'https://api.dicebear.com/9.x/avataaars/svg?seed=Josh&top=shortHairTheCaesar'
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388594/avatar_089_bzeyam.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388593/avatar_088_aiz8no.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388591/avatar_087_m3g20s.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388590/avatar_086_ohio4a.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388588/avatar_085_wtwvvb.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388588/avatar_084_dro0ms.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388586/avatar_083_uxajgt.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388584/avatar_082_ta35qk.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388583/avatar_081_e69gyv.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388582/avatar_080_mwtwnw.png'
       ],
       CLINICA: [
-          'https://api.dicebear.com/9.x/micah/svg?seed=Doctor1',
-          'https://api.dicebear.com/9.x/micah/svg?seed=Nurse2',
-          'https://api.dicebear.com/9.x/micah/svg?seed=Doc3',
-          'https://api.dicebear.com/9.x/micah/svg?seed=Specialist',
-          'https://api.dicebear.com/9.x/micah/svg?seed=Medic',
-          'https://api.dicebear.com/9.x/micah/svg?seed=Attendant'
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388580/avatar_079_fvykcy.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388579/avatar_078_ecndml.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388577/avatar_077_tfbwrg.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388577/avatar_076_jyupaq.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388574/avatar_075_bvessy.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388573/avatar_074_gfv7zr.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388572/avatar_073_yx7xjh.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388569/avatar_072_lek44m.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388568/avatar_071_zoqv8g.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388574/avatar_075_bvessy.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388568/avatar_070_lrmlgd.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388568/avatar_069_fcbsbu.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388565/avatar_068_ikmysx.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388564/avatar_067_oszvab.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388562/avatar_066_hjcjw3.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388562/avatar_065_fn6qu2.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388559/avatar_064_rpbclx.png'
       ],
-      GERAL: [
-          'https://api.dicebear.com/9.x/notionists/svg?seed=Leo',
-          'https://api.dicebear.com/9.x/notionists/svg?seed=Mila',
-          'https://api.dicebear.com/9.x/notionists/svg?seed=Robert',
-          'https://api.dicebear.com/9.x/notionists/svg?seed=Julia',
-          'https://api.dicebear.com/9.x/notionists/svg?seed=Brian',
-          'https://api.dicebear.com/9.x/notionists/svg?seed=Ana'
+	  ESTETICA: [
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388535/avatar_045_nv70ef.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388536/avatar_046_wg8x8r.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388539/avatar_048_ip9b4e.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388540/avatar_049_jewrml.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388546/avatar_053_wrgrz8.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388546/avatar_054_jhavlx.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388552/avatar_058_mmr5m1.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388531/avatar_042_ogfzja.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388529/avatar_041_ecjzmd.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388528/avatar_040_fxiobg.png'
+      ],
+	  PETSHOP: [
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388528/avatar_039_zzuyim.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388524/avatar_037_sbw3s8.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388524/avatar_038_z8sdbc.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388523/avatar_036_m3vdfq.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388519/avatar_034_j5uwqn.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388519/avatar_033_s4zzdt.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388522/avatar_035_mfph2z.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388518/avatar_032_kzbgpb.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388514/avatar_030_chbans.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388600/avatar_093_mplttc.png'
+      ],
+	  ESTUDIO_TATTOO: [
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388418/avatar_024_qkgzzq.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388419/avatar_026_goddq7.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388413/avatar_020_okznue.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388414/avatar_021_kqjmrb.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388406/avatar_016_fbp6qn.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388401/avatar_013_l3bss3.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388400/avatar_012_ujsrug.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388398/avatar_010_mrlgn8.png',
+		  'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388407/avatar_017_nf9gip.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388404/avatar_015_slhrur.png'
+      ],
+      SERVICOS_GERAIS: [
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388397/avatar_009_fwhxir.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388396/avatar_008_iduz8a.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388395/avatar_007_aa7pxl.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388394/avatar_006_ojxb2h.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388393/avatar_005_mwznbr.png',
+          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388392/avatar_002_epvu4b.png'
       ]
   };
 
