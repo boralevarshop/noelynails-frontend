@@ -68,7 +68,7 @@ export default function PlanoPage() {
   const diasRestantes = tenant.trialFim 
     ? Math.ceil((new Date(tenant.trialFim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) 
     : 0;
-
+  const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant.corSecundaria || '#F3F4F6';
 
   // --- CORES DOS PLANOS (TEXTO) ---
@@ -173,9 +173,13 @@ export default function PlanoPage() {
             </div>
           </div>
 
-          <button onClick={() => router.push('/dashboard')} className="text-gray-500 hover:text-gray-900 font-medium transition-colors">
-            ← Voltar ao Painel
-          </button>
+          <button 
+                onClick={() => router.push('/dashboard')} 
+                className="px-4 py-2 rounded-lg font-bold border-2 transition-colors flex items-center gap-2 hover:bg-gray-50"
+                style={{ backgroundColor: corPrincipal, borderColor: "#fff", color: "#fff"}}
+             >
+                <span>←</span> Voltar
+             </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
