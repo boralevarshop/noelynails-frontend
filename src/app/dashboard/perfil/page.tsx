@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function PerfilPage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [usuario, setUsuario] = useState<any>(null);
   const [tenant, setTenant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -13,9 +15,7 @@ export default function PerfilPage() {
   const [todosServicos, setTodosServicos] = useState<any[]>([]);
   const [abaAtiva, setAbaAtiva] = useState('dados');
 
-  // --- NOVO: CONTROLE DO MODAL DE AVATAR ---
   const [modalAvatarAberto, setModalAvatarAberto] = useState(false);
-  // -----------------------------------------
 
   const [formData, setFormData] = useState({
     nome: '', telefone: '', bio: '', instagram: '', avatarUrl: '',
@@ -43,79 +43,86 @@ export default function PerfilPage() {
     { id: 'SERVICOS_GERAIS', label: '🏢 Geral' }
   ];
 
-  // --- LISTA DE AVATARES (LINKS PRONTOS) ---
-  const AVATARES: any = {
-      SALAO_BELEZA: [
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388610/avatar_099_i8dixo.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388607/avatar_098_zemerc.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388605/avatar_097_szfiq6.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388605/avatar_096_ol9amp.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388602/avatar_095_lcujro.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388599/avatar_092_ovm9r1.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388595/avatar_090_slwxw4.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388597/avatar_091_iq7sks.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388600/avatar_094_oayiqo.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388600/avatar_093_mplttc.png'
-      ],
-      BARBEARIA: [
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388594/avatar_089_bzeyam.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388593/avatar_088_aiz8no.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388591/avatar_087_m3g20s.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388590/avatar_086_ohio4a.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388588/avatar_085_wtwvvb.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388588/avatar_084_dro0ms.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388586/avatar_083_uxajgt.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388584/avatar_082_ta35qk.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388583/avatar_081_e69gyv.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388582/avatar_080_mwtwnw.png'
-      ],
-      CLINICA: [
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388580/avatar_079_fvykcy.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388579/avatar_078_ecndml.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388577/avatar_077_tfbwrg.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388577/avatar_076_jyupaq.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388574/avatar_075_bvessy.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388573/avatar_074_gfv7zr.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388572/avatar_073_yx7xjh.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388569/avatar_072_lek44m.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388568/avatar_071_zoqv8g.png'
-      ],
-      ESTETICA: [
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388535/avatar_045_nv70ef.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388536/avatar_046_wg8x8r.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388539/avatar_048_ip9b4e.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388540/avatar_049_jewrml.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388546/avatar_053_wrgrz8.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388546/avatar_054_jhavlx.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388552/avatar_058_mmr5m1.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388531/avatar_042_ogfzja.png'
-      ],
-      PETSHOP: [
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388528/avatar_039_zzuyim.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388524/avatar_037_sbw3s8.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388524/avatar_038_z8sdbc.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388523/avatar_036_m3vdfq.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388519/avatar_034_j5uwqn.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388519/avatar_033_s4zzdt.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388522/avatar_035_mfph2z.png'
-      ],
-      ESTUDIO_TATTOO: [
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388418/avatar_024_qkgzzq.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388419/avatar_026_goddq7.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388413/avatar_020_okznue.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388414/avatar_021_kqjmrb.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388406/avatar_016_fbp6qn.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388401/avatar_013_l3bss3.png'
-      ],
-      SERVICOS_GERAIS: [
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388397/avatar_009_fwhxir.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388396/avatar_008_iduz8a.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388395/avatar_007_aa7pxl.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388394/avatar_006_ojxb2h.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388393/avatar_005_mwznbr.png',
-          'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388392/avatar_002_epvu4b.png'
-      ]
-  };
+  // --- LISTA UNIFICADA DE AVATARES (CLOUDINARY) ---
+  const AVATARES = [
+      // Beleza / Feminino
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388610/avatar_099_i8dixo.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388607/avatar_098_zemerc.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388605/avatar_097_szfiq6.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388605/avatar_096_ol9amp.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388602/avatar_095_lcujro.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388599/avatar_092_ovm9r1.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388595/avatar_090_slwxw4.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388597/avatar_091_iq7sks.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388600/avatar_094_oayiqo.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388600/avatar_093_mplttc.png',
+      
+      // Barbearia / Masculino
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388594/avatar_089_bzeyam.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388593/avatar_088_aiz8no.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388591/avatar_087_m3g20s.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388590/avatar_086_ohio4a.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388588/avatar_085_wtwvvb.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388588/avatar_084_dro0ms.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388586/avatar_083_uxajgt.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388584/avatar_082_ta35qk.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388583/avatar_081_e69gyv.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388582/avatar_080_mwtwnw.png',
+
+      // Clinica / Saúde
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388580/avatar_079_fvykcy.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388579/avatar_078_ecndml.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388577/avatar_077_tfbwrg.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388577/avatar_076_jyupaq.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388574/avatar_075_bvessy.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388573/avatar_074_gfv7zr.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388572/avatar_073_yx7xjh.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388569/avatar_072_lek44m.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388568/avatar_071_zoqv8g.png',
+      
+      // Estética
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388535/avatar_045_nv70ef.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388536/avatar_046_wg8x8r.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388539/avatar_048_ip9b4e.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388540/avatar_049_jewrml.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388546/avatar_053_wrgrz8.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388546/avatar_054_jhavlx.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388552/avatar_058_mmr5m1.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388531/avatar_042_ogfzja.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388529/avatar_041_ecjzmd.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388528/avatar_040_fxiobg.png',
+
+      // Petshop
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388528/avatar_039_zzuyim.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388524/avatar_037_sbw3s8.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388524/avatar_038_z8sdbc.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388523/avatar_036_m3vdfq.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388519/avatar_034_j5uwqn.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388519/avatar_033_s4zzdt.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388522/avatar_035_mfph2z.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388518/avatar_032_kzbgpb.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388514/avatar_030_chbans.png',
+
+      // Tattoo
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388418/avatar_024_qkgzzq.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388419/avatar_026_goddq7.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388413/avatar_020_okznue.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388414/avatar_021_kqjmrb.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388406/avatar_016_fbp6qn.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388401/avatar_013_l3bss3.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388400/avatar_012_ujsrug.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388398/avatar_010_mrlgn8.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388407/avatar_017_nf9gip.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388404/avatar_015_slhrur.png',
+
+      // Geral
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388397/avatar_009_fwhxir.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388396/avatar_008_iduz8a.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388395/avatar_007_aa7pxl.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388394/avatar_006_ojxb2h.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388393/avatar_005_mwznbr.png',
+      'https://res.cloudinary.com/datzd5c3w/image/upload/v1764388392/avatar_002_epvu4b.png'
+  ];
 
   useEffect(() => {
     const dadosSalvos = localStorage.getItem('usuario_saas');
@@ -162,6 +169,15 @@ export default function PerfilPage() {
 
   const criarHorarioPadrao = () => {
       const padrao: any = {}; diasSemana.forEach(dia => { padrao[dia] = { ativo: dia !== 'dom', inicio: '09:00', fim: '18:00' }; }); return padrao;
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1024 * 1024) { alert('Máximo 1MB'); return; }
+    const reader = new FileReader();
+    reader.onloadend = () => setFormData(prev => ({ ...prev, avatarUrl: reader.result as string }));
+    reader.readAsDataURL(file);
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -228,12 +244,9 @@ export default function PerfilPage() {
     } catch (error) { alert('Erro de conexão.'); }
   };
 
-  // Seleciona qual lista de avatares mostrar
   const getListaAvatares = () => {
-      const seg = formTenant.segmento;
-      if (seg === 'SALAO_BELEZA' || seg === 'ESTETICA') return AVATARES.SALAO_BELEZA;
-      if (seg === 'BARBEARIA' || seg === 'ESTUDIO_TATTOO') return AVATARES.BARBEARIA;
-      return AVATARES.GERAL;
+      // Retorna TUDO, sem filtro por segmento
+      return AVATARES;
   };
 
   if (loading) return <div className="p-10 text-center">Carregando perfil...</div>;
@@ -258,8 +271,12 @@ export default function PerfilPage() {
             {/* CABEÇALHO COM SELETOR DE AVATAR */}
             <div className="p-6 flex items-center gap-6" style={{ backgroundColor: tenant?.corPrimaria || '#4F46E5', color: tenant?.corTexto || '#FFFFFF' }}>
                 
+                {/* Input de Arquivo Oculto (Backup) */}
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+
+                {/* Avatar Clicável */}
                 <div 
-                    className="h-20 w-20 rounded-full border-4 border-white bg-white/20 flex items-center justify-center text-3xl font-bold cursor-pointer overflow-hidden relative group"
+                    className="relative h-24 w-24 rounded-full border-4 border-white bg-white/20 flex items-center justify-center text-3xl font-bold cursor-pointer overflow-hidden group"
                     onClick={() => setModalAvatarAberto(true)}
                     title="Clique para escolher um avatar"
                 >
@@ -268,15 +285,21 @@ export default function PerfilPage() {
                     ) : (
                         <span>{usuario.nome.charAt(0).toUpperCase()}</span>
                     )}
-                    <div className="absolute inset-0 bg-black/30 hidden group-hover:flex items-center justify-center">
-                        <span className="text-xs font-bold text-white">EDITAR</span>
+                    
+                    {/* Ícone de Lápis */}
+                    <div className="absolute bottom-0 right-0 bg-white text-gray-700 rounded-full p-1.5 border border-gray-200 shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
                     </div>
                 </div>
 
                 <div>
-                    <h2 className="text-2xl font-bold">{usuario.nome}</h2>
-                    <p className="opacity-90">{usuario.email}</p>
-                    <span className="text-xs bg-white/20 px-2 py-1 rounded mt-2 inline-block uppercase tracking-wider">{usuario.role.replace('_', ' ')}</span>
+                    <h2 className="text-3xl font-bold mb-1">{usuario.nome}</h2>
+                    <p className="opacity-90 text-sm mb-2">{usuario.email}</p>
+                    <span className="text-xs bg-white/20 px-3 py-1 rounded-full inline-block uppercase tracking-wider font-bold shadow-sm">
+                        {usuario.role.replace('_', ' ')}
+                    </span>
                 </div>
             </div>
 
@@ -290,8 +313,9 @@ export default function PerfilPage() {
             </div>
             <div className="p-6">
                 
+                {/* ABA DADOS */}
                 {abaAtiva === 'dados' && (
-                    <form onSubmit={handleSaveProfile} className="space-y-5 max-w-lg">
+                    <form onSubmit={handleSaveProfile} className="space-y-5 max-w-lg mx-auto md:mx-0">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome</label><input type="text" required className="w-full border rounded-lg p-2.5" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} /></div>
                             <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">WhatsApp</label><input type="text" required className="w-full border rounded-lg p-2.5" value={formData.telefone} onChange={e => setFormData({...formData, telefone: e.target.value})} /></div>
@@ -306,6 +330,7 @@ export default function PerfilPage() {
                     </form>
                 )}
 
+                {/* ABA SALÃO */}
                 {abaAtiva === 'salao' && isDono && (
                     <form onSubmit={handleSaveTenant} className="space-y-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -313,62 +338,32 @@ export default function PerfilPage() {
                                 <div><h3 className="text-lg font-bold text-gray-800">Identidade Visual</h3><p className="text-sm text-gray-500">Defina as cores da sua marca.</p></div>
                                 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Primária (Botões)</label>
-                                        <div className="flex gap-2"><input type="color" className="h-10 w-10 rounded cursor-pointer border-0" value={formTenant.corPrimaria} onChange={e => setFormTenant({...formTenant, corPrimaria: e.target.value})} /><input type="text" className="w-full border rounded-lg p-2.5 uppercase text-sm" value={formTenant.corPrimaria} onChange={e => setFormTenant({...formTenant, corPrimaria: e.target.value})} /></div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Texto (Contraste)</label>
-                                        <div className="flex gap-2"><input type="color" className="h-10 w-10 rounded cursor-pointer border-0" value={formTenant.corTexto} onChange={e => setFormTenant({...formTenant, corTexto: e.target.value})} /><input type="text" className="w-full border rounded-lg p-2.5 uppercase text-sm" value={formTenant.corTexto} onChange={e => setFormTenant({...formTenant, corTexto: e.target.value})} /></div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Secundária (Fundo)</label>
-                                        <div className="flex gap-2"><input type="color" className="h-10 w-10 rounded cursor-pointer border-0" value={formTenant.corSecundaria} onChange={e => setFormTenant({...formTenant, corSecundaria: e.target.value})} /><input type="text" className="w-full border rounded-lg p-2.5 uppercase text-sm" value={formTenant.corSecundaria} onChange={e => setFormTenant({...formTenant, corSecundaria: e.target.value})} /></div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Terciária (Cards)</label>
-                                        <div className="flex gap-2"><input type="color" className="h-10 w-10 rounded cursor-pointer border-0" value={formTenant.corTerciaria} onChange={e => setFormTenant({...formTenant, corTerciaria: e.target.value})} /><input type="text" className="w-full border rounded-lg p-2.5 uppercase text-sm" value={formTenant.corTerciaria} onChange={e => setFormTenant({...formTenant, corTerciaria: e.target.value})} /></div>
-                                    </div>
+                                    <div><label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Primária</label><div className="flex gap-2"><input type="color" className="h-10 w-10 rounded border-0 cursor-pointer" value={formTenant.corPrimaria} onChange={e => setFormTenant({...formTenant, corPrimaria: e.target.value})} /><input type="text" className="w-full border rounded-lg p-2.5 uppercase text-sm" value={formTenant.corPrimaria} onChange={e => setFormTenant({...formTenant, corPrimaria: e.target.value})} /></div></div>
+                                    <div><label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Texto</label><div className="flex gap-2"><input type="color" className="h-10 w-10 rounded border-0 cursor-pointer" value={formTenant.corTexto} onChange={e => setFormTenant({...formTenant, corTexto: e.target.value})} /><input type="text" className="w-full border rounded-lg p-2.5 uppercase text-sm" value={formTenant.corTexto} onChange={e => setFormTenant({...formTenant, corTexto: e.target.value})} /></div></div>
+                                    <div><label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Secundária</label><div className="flex gap-2"><input type="color" className="h-10 w-10 rounded border-0 cursor-pointer" value={formTenant.corSecundaria} onChange={e => setFormTenant({...formTenant, corSecundaria: e.target.value})} /><input type="text" className="w-full border rounded-lg p-2.5 uppercase text-sm" value={formTenant.corSecundaria} onChange={e => setFormTenant({...formTenant, corSecundaria: e.target.value})} /></div></div>
+                                    <div><label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Terciária</label><div className="flex gap-2"><input type="color" className="h-10 w-10 rounded border-0 cursor-pointer" value={formTenant.corTerciaria} onChange={e => setFormTenant({...formTenant, corTerciaria: e.target.value})} /><input type="text" className="w-full border rounded-lg p-2.5 uppercase text-sm" value={formTenant.corTerciaria} onChange={e => setFormTenant({...formTenant, corTerciaria: e.target.value})} /></div></div>
                                 </div>
 
-                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Segmento / Tipo</label><select className="w-full border rounded-lg p-2.5 bg-white" value={formTenant.segmento} onChange={e => setFormTenant({...formTenant, segmento: e.target.value})}>{segmentos.map(seg => (<option key={seg.id} value={seg.id}>{seg.label}</option>))}</select></div>
-                                <div className="flex items-center gap-3 bg-green-50 p-4 rounded-lg border border-green-100"><input type="checkbox" id="agendamentoOnline" className="w-5 h-5 rounded" checked={formTenant.agendamentoOnline} onChange={e => setFormTenant({...formTenant, agendamentoOnline: e.target.checked})} /><div><label htmlFor="agendamentoOnline" className="text-sm font-bold text-gray-800 cursor-pointer block">Site de Agendamento Ativo</label><p className="text-xs text-gray-500">Se desmarcar, seu link público mostrará "Fechado".</p></div></div>
+                                <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Segmento</label><select className="w-full border rounded-lg p-2.5 bg-white" value={formTenant.segmento} onChange={e => setFormTenant({...formTenant, segmento: e.target.value})}>{segmentos.map(seg => (<option key={seg.id} value={seg.id}>{seg.label}</option>))}</select></div>
+                                <div className="flex items-center gap-3 bg-green-50 p-4 rounded-lg border border-green-100"><input type="checkbox" id="agendamentoOnline" className="w-5 h-5 rounded" checked={formTenant.agendamentoOnline} onChange={e => setFormTenant({...formTenant, agendamentoOnline: e.target.checked})} /><div><label htmlFor="agendamentoOnline" className="text-sm font-bold text-gray-800 cursor-pointer block">Agendamento Online</label></div></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome do Salão</label><input type="text" required className="w-full border rounded-lg p-2.5" value={formTenant.nome} onChange={e => setFormTenant({...formTenant, nome: e.target.value})} /></div>
                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Link (Slug)</label><div className="flex items-center border rounded-lg bg-gray-50 px-3"><span className="text-gray-500 text-sm">agendar.../</span><input type="text" required className="w-full p-2.5 bg-transparent outline-none font-bold" style={{ color: formTenant.corPrimaria }} value={formTenant.slug} onChange={e => setFormTenant({...formTenant, slug: e.target.value})} /></div></div>
-                                
                                 <button type="submit" disabled={saving} className="w-full py-3 rounded-lg font-bold transition-colors disabled:opacity-50" style={{ backgroundColor: formTenant.corPrimaria, color: formTenant.corTexto }}>Salvar Aparência</button>
                             </div>
-
-                            {/* LIVE PREVIEW */}
-                            <div className="border-4 border-gray-800 rounded-[30px] overflow-hidden shadow-2xl bg-black h-[500px] w-[280px] mx-auto relative">
+                            
+                            {/* PREVIEW */}
+                            <div className="hidden lg:block border-4 border-gray-800 rounded-[30px] overflow-hidden shadow-2xl bg-black h-[500px] w-[280px] mx-auto relative">
                                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 h-6 w-32 bg-black rounded-b-xl z-20"></div>
                                 <div className="h-full w-full flex flex-col overflow-y-auto" style={{ backgroundColor: formTenant.corSecundaria }}>
-                                    <div className="p-6 text-center pt-10" style={{ backgroundColor: formTenant.corPrimaria, color: formTenant.corTexto }}>
-                                        <h3 className="font-bold text-lg">{formTenant.nome || 'Seu Salão'}</h3>
-                                        <p className="text-xs opacity-80">Agendamento Online</p>
-                                    </div>
-                                    <div className="p-4 flex-1 space-y-3">
-                                        <p className="text-xs font-bold opacity-50" style={{ color: '#000' }}>ESCOLHA O SERVIÇO</p>
-                                        <div className="p-3 rounded-lg shadow-sm flex justify-between items-center border border-gray-100" style={{ backgroundColor: formTenant.corTerciaria }}>
-                                            <div><p className="text-xs font-bold text-gray-800">Corte</p><p className="text-[10px] text-gray-500">30 min</p></div>
-                                            <p className="text-xs font-bold" style={{ color: formTenant.corPrimaria }}>R$ 50,00</p>
-                                        </div>
-                                        <div className="p-3 rounded-lg shadow-sm flex justify-between items-center border border-gray-100" style={{ backgroundColor: formTenant.corTerciaria }}>
-                                            <div><p className="text-xs font-bold text-gray-800">Barba</p><p className="text-[10px] text-gray-500">20 min</p></div>
-                                            <p className="text-xs font-bold" style={{ color: formTenant.corPrimaria }}>R$ 35,00</p>
-                                        </div>
-                                    </div>
-                                    <div className="p-4 mt-auto">
-                                         <div className="w-full py-3 rounded-lg text-center text-xs font-bold shadow" style={{ backgroundColor: formTenant.corPrimaria, color: formTenant.corTexto }}>Confirmar</div>
-                                    </div>
+                                    <div className="p-6 text-center pt-10" style={{ backgroundColor: formTenant.corPrimaria, color: formTenant.corTexto }}><h3 className="font-bold text-lg">{formTenant.nome}</h3></div>
+                                    <div className="p-4 flex-1 space-y-3"><p className="text-xs font-bold opacity-50" style={{ color: '#000' }}>PREVIEW</p><div className="p-3 rounded-lg shadow-sm flex justify-between border border-gray-100" style={{ backgroundColor: formTenant.corTerciaria }}><div><p className="text-xs font-bold text-gray-800">Serviço</p></div><p className="text-xs font-bold" style={{ color: formTenant.corPrimaria }}>R$ 00</p></div></div>
                                 </div>
                             </div>
                         </div>
                     </form>
                 )}
 
-                {/* OUTRAS ABAS... (Serviços, Horários, Senha - Manter o código anterior) */}
-                {/* Vou repetir o bloco de serviços/horários/senha para não quebrar o arquivo */}
+                {/* OUTRAS ABAS IGUAIS AO ANTERIOR */}
                 {abaAtiva === 'servicos' && (
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{todosServicos.map(serv => (<div key={serv.id} onClick={() => toggleServico(serv.id)} className={`p-3 rounded-lg border-2 cursor-pointer flex items-center gap-3 ${formData.servicosIds.includes(serv.id) ? 'bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`} style={formData.servicosIds.includes(serv.id) ? { borderColor: tenant?.corPrimaria } : {}}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.servicosIds.includes(serv.id) ? '' : 'bg-white border-gray-400'}`} style={formData.servicosIds.includes(serv.id) ? { backgroundColor: tenant?.corPrimaria, borderColor: tenant?.corPrimaria } : {}}>{formData.servicosIds.includes(serv.id) && <span className="text-white text-xs">✓</span>}</div><div><p className="font-bold text-gray-800">{serv.nome}</p></div></div>))}</div>
@@ -382,7 +377,7 @@ export default function PerfilPage() {
                     </div>
                 )}
                 {abaAtiva === 'senha' && (
-                    <form onSubmit={handleChangePassword} className="space-y-5 max-w-md mx-auto py-4">
+                    <form onSubmit={handleChangePassword} className="space-y-5 max-w-md mx-auto md:mx-0">
                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nova Senha</label><input type="password" required className="w-full border rounded-lg p-2.5" value={formSenha.nova} onChange={e => setFormSenha({...formSenha, nova: e.target.value})} /></div>
                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Confirmar</label><input type="password" required className="w-full border rounded-lg p-2.5" value={formSenha.confirmacao} onChange={e => setFormSenha({...formSenha, confirmacao: e.target.value})} /></div>
                         <button type="submit" className="w-full bg-gray-800 text-white py-3 rounded-lg font-bold hover:bg-black">Atualizar Senha</button>
@@ -391,7 +386,7 @@ export default function PerfilPage() {
             </div>
         </div>
 
-        {/* --- MODAL DE SELEÇÃO DE AVATAR --- */}
+        {/* --- MODAL DE SELEÇÃO DE AVATAR (LISTA COMPLETA) --- */}
         {modalAvatarAberto && (
             <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl">
@@ -400,6 +395,7 @@ export default function PerfilPage() {
                         <button onClick={() => setModalAvatarAberto(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                     </div>
                     
+                    {/* GRID COM TODOS OS AVATARES */}
                     <div className="grid grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto p-2">
                         {getListaAvatares().map((url: string, i: number) => (
                             <div 
@@ -408,11 +404,22 @@ export default function PerfilPage() {
                                     setFormData(prev => ({ ...prev, avatarUrl: url }));
                                     setModalAvatarAberto(false);
                                 }}
-                                className={`rounded-full border-4 cursor-pointer hover:scale-105 transition-transform ${formData.avatarUrl === url ? 'border-green-500' : 'border-transparent hover:border-gray-200'}`}
+                                className={`rounded-full border-4 cursor-pointer hover:scale-105 transition-transform p-1 ${formData.avatarUrl === url ? 'border-green-500 bg-green-50' : 'border-transparent hover:border-gray-200'}`}
                             >
-                                <img src={url} alt={`Avatar ${i}`} className="w-full h-full rounded-full bg-gray-100" />
+                                <img src={url} alt={`Avatar ${i}`} className="w-full h-full rounded-full bg-gray-100 object-cover" />
                             </div>
                         ))}
+                    </div>
+                    
+                    <div className="mt-4 border-t pt-4 text-center">
+                         <p className="text-xs text-gray-500 mb-2">Ou use uma foto do seu dispositivo:</p>
+                         <button 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="text-sm font-bold hover:underline"
+                            style={{ color: tenant?.corPrimaria }}
+                         >
+                            Fazer Upload de Foto
+                         </button>
                     </div>
                 </div>
             </div>
