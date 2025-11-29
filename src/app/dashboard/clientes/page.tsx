@@ -76,38 +76,35 @@ export default function ClientesPage() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
     try {
+        let res;
         if (clienteEmEdicao) {
             // --- MODO EDIÇÃO ---
-            const res = await fetch(`${apiUrl}/clients/${clienteEmEdicao.id}`, {
+            res = await fetch(`${apiUrl}/clients/${clienteEmEdicao.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...form, tenantId: usuario.tenant.id })
             });
-
-            if (res.ok) {
-                alert('Editado com sucesso! ✅');
-                setModalFormAberto(false);
-                carregarClientes(usuario.tenant.id);
-            } else {
-                alert('Erro ao editar.');
-            }
         } else {
             // --- MODO CRIAÇÃO ---
-            const res = await fetch(`${apiUrl}/clients`, {
+            res = await fetch(`${apiUrl}/clients`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...form, tenantId: usuario.tenant.id })
             });
-
-            if (res.ok) {
-                alert('Cliente cadastrado com sucesso! 🎉');
-                setModalFormAberto(false);
-                carregarClientes(usuario.tenant.id);
-            } else {
-                alert('Erro ao cadastrar.');
-            }
         }
-    } catch (error) { alert('Erro de conexão.'); }
+
+        // LÓGICA DE RESPOSTA MELHORADA
+        if (res.ok) {
+            alert(clienteEmEdicao ? 'Editado com sucesso! ✅' : 'Cliente cadastrado com sucesso! 🎉');
+            setModalFormAberto(false);
+            carregarClientes(usuario.tenant.id);
+        } else {
+            // Lê a mensagem de erro específica do backend (Ex: "Telefone já existe")
+            const erro = await res.json();
+            alert(`❌ Erro: ${erro.message}`);
+        }
+
+    } catch (error) { alert('❌ Erro de conexão.'); }
   };
   // ----------------------------------------------
 
@@ -211,21 +208,25 @@ export default function ClientesPage() {
                                 </a>
                               )}
 
-                              <button onClick={() => setClienteHistorico(cli)} className="text-gray-400 hover:text-indigo-600 hover:scale-110 transition-transform" title="Ver Histórico">📋</button>
+                              <button onClick={() => {
+                                    setClienteHistorico(cli);
+                                    setBuscaServicoHist('');
+                                    setBuscaDataHist('');
+                                    setStatusFiltroHist('TODOS');
+                                }} className="text-gray-400 hover:text-indigo-600 hover:scale-110 transition-transform" title="Ver Histórico">📋</button>
                           </div>
 
                           <p className="text-sm text-gray-500">{cli.telefone}</p>
                           
                           {ultimoAgendamento ? (
-                              <p className="text-xs text-gray-500 mt-2 bg-gray-50 p-1 rounded inline-block">
-                                  <span className="font-bold">Última visita:</span> {format(new Date(ultimoAgendamento.dataHora), 'dd/MM/yy')} ({ultimoAgendamento.servico.nome})
+                              <p className="text-[10px] text-gray-400 mt-1 font-medium">
+                                  <strong className="text-gray-800">Última visita:</strong> {format(new Date(ultimoAgendamento.dataHora), 'dd/MM/yy')} ({ultimoAgendamento.servico.nome})
                               </p>
                           ) : (
-                              <p className="text-xs text-gray-300 mt-2 italic">Nunca concluiu um agendamento</p>
+                              <p className="text-[10px] text-gray-300 mt-1 italic">Nunca concluiu um agendamento</p>
                           )}
                         </div>
                         
-                        {/* BOTÕES EMPILHADOS (EDITAR EM CIMA, EXCLUIR EM BAIXO) */}
                         <div className="flex flex-col gap-2 ml-4">
                             <button 
                                 onClick={() => abrirModalEdicao(cli)} 
@@ -277,7 +278,7 @@ export default function ClientesPage() {
             </div>
         )}
 
-        {/* MODAL DE HISTÓRICO (IGUAL AO ANTERIOR) */}
+        {/* MODAL DE HISTÓRICO */}
         {clienteHistorico && (
             <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-xl p-6 shadow-2xl max-h-[85vh] flex flex-col">
