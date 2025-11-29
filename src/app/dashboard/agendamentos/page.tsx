@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, isToday, isTomorrow, parseISO, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import * as XLSX from 'xlsx'; // Importa a biblioteca Excel
+import * as XLSX from 'xlsx'; 
 import { getTheme } from '../../../utils/theme';
 
 export default function AgendamentosPage() {
@@ -16,26 +16,45 @@ export default function AgendamentosPage() {
   const [profissionais, setProfissionais] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [usuario, setUsuario] = useState<any>(null);
-  const [tenant, setTenant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [tema, setTema] = useState(getTheme('SALAO_BELEZA'));
+
+  // --- OTIMIZAÇÃO DE PERFORMANCE (CACHE) ---
+  // Carrega as cores e tema instantaneamente do navegador se já tiver visitado antes
+  const [tenant, setTenant] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('tenant_cache');
+      return cached ? JSON.parse(cached) : null;
+    }
+    return null;
+  });
+
+  const [tema, setTema] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('tenant_cache');
+      if (cached) {
+         const t = JSON.parse(cached);
+         return getTheme(t.segmento || 'SALAO_BELEZA');
+      }
+    }
+    return getTheme('SALAO_BELEZA');
+  });
+  // -----------------------------------------
   
   // Controle de Interface
   const [abaAtiva, setAbaAtiva] = useState<'proximos' | 'historico'>('proximos');
   const [modalAberto, setModalAberto] = useState(false);
 
-  // --- FILTROS (ABA PRÓXIMOS) ---
+  // Filtros Próximos
   const [filtroProxProfissional, setFiltroProxProfissional] = useState('');
   const [filtroProxServico, setFiltroProxServico] = useState('');
-  const [buscaProx, setBuscaProx] = useState(''); // Busca textual
+  const [buscaProx, setBuscaProx] = useState(''); 
 
-  // --- FILTROS (ABA HISTÓRICO) ---
+  // Filtros Histórico
   const [filtroHistCliente, setFiltroHistCliente] = useState('');
   const [filtroHistProfissional, setFiltroHistProfissional] = useState('');
   const [filtroHistServico, setFiltroHistServico] = useState('');
-  const [dataInicio, setDataInicio] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd')); // Padrão: 30 dias atrás
-  const [dataFim, setDataFim] = useState(format(new Date(), 'yyyy-MM-dd')); // Padrão: Hoje
-  // -------------------------------
+  const [dataInicio, setDataInicio] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd')); 
+  const [dataFim, setDataFim] = useState(format(new Date(), 'yyyy-MM-dd')); 
 
   // Formulário Novo Agendamento
   const [dataSelecionada, setDataSelecionada] = useState('');
@@ -64,7 +83,6 @@ export default function AgendamentosPage() {
         const souProfissional = profissionais.find(p => p.id === usuario.id);
         if (souProfissional) {
             setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
-            // Se for profissional, já filtra a lista para ele
             setFiltroProxProfissional(usuario.id);
             setFiltroHistProfissional(usuario.id);
         }
@@ -77,7 +95,7 @@ export default function AgendamentosPage() {
       const [resServ, resProf, resAgenda, resCli, resTenant] = await Promise.all([
         fetch(`${apiUrl}/services/tenant/${tenantId}`),
         fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
-        fetch(`${apiUrl}/appointments/tenant/${tenantId}`), // Traz tudo, filtraremos no front
+        fetch(`${apiUrl}/appointments/tenant/${tenantId}`),
         fetch(`${apiUrl}/clients/tenant/${tenantId}`),
         fetch(`${apiUrl}/tenants/${tenantId}`)
       ]);
@@ -90,6 +108,8 @@ export default function AgendamentosPage() {
           const t = await resTenant.json();
           setTenant(t);
           setTema(getTheme(t.segmento || 'SALAO_BELEZA'));
+          // Atualiza o cache para a próxima vez ser instantâneo
+          localStorage.setItem('tenant_cache', JSON.stringify(t));
       }
 
       if (resAgenda.ok) setAgendamentos(await resAgenda.json());
@@ -98,62 +118,43 @@ export default function AgendamentosPage() {
     finally { setLoading(false); }
   };
 
-  // --- LÓGICA DE FILTROS AVANÇADA ---
   const getListaFiltrada = () => {
     let lista = agendamentos;
-
-    // Normalização para busca sem acento
     const normalizar = (texto: string) => texto ? texto.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
 
     if (abaAtiva === 'proximos') {
-        // Filtro ABA PRÓXIMOS (Status Confirmado + Data Futura ou Hoje)
         lista = lista.filter(a => a.status === 'CONFIRMADO');
-        
         if (filtroProxProfissional) lista = lista.filter(a => a.profissional.id === filtroProxProfissional);
         if (filtroProxServico) lista = lista.filter(a => a.servico.id === filtroProxServico);
         if (buscaProx) {
             const termo = normalizar(buscaProx);
             lista = lista.filter(a => normalizar(a.cliente.nome).includes(termo) || a.cliente.telefone.includes(termo));
         }
-        
-        // Ordenação: Mais próximo primeiro (Ascendente)
         return lista.sort((a, b) => new Date(a.dataHora).getTime() - new Date(b.dataHora).getTime());
-    
     } else {
-        // Filtro ABA HISTÓRICO (Cancelado/Concluido + Datas + Textos)
         lista = lista.filter(a => a.status === 'CANCELADO' || a.status === 'CONCLUIDO');
-
-        // Filtro de Data (Range) - CRÍTICO
         if (dataInicio && dataFim) {
-            // Ajusta para pegar o dia inteiro (00:00 até 23:59)
-            // A data vem yyyy-MM-dd, o new Date considera UTC, então usamos string direta
             const dInicio = new Date(dataInicio + 'T00:00:00');
             const dFim = new Date(dataFim + 'T23:59:59');
-            
             lista = lista.filter(a => {
-                const dataAg = new Date(a.dataHora); // Data do agendamento (já em ISO)
+                const dataAg = new Date(a.dataHora);
                 return dataAg >= dInicio && dataAg <= dFim;
             });
         }
-
         if (filtroHistProfissional) lista = lista.filter(a => a.profissional.id === filtroHistProfissional);
         if (filtroHistServico) lista = lista.filter(a => a.servico.id === filtroHistServico);
         if (filtroHistCliente) {
             const termo = normalizar(filtroHistCliente);
             lista = lista.filter(a => normalizar(a.cliente.nome).includes(termo));
         }
-
-        // Ordenação: Mais recente primeiro (Descendente)
         return lista.sort((a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime());
     }
   };
 
   const listaAtual = getListaFiltrada();
 
-  // --- FUNÇÃO EXPORTAR EXCEL ---
   const exportarExcel = () => {
       if (listaAtual.length === 0) { alert('Nada para exportar.'); return; }
-
       const dadosParaExcel = listaAtual.map(ag => ({
           Data: format(new Date(ag.dataHora), 'dd/MM/yyyy'),
           Hora: format(new Date(ag.dataHora), 'HH:mm'),
@@ -164,15 +165,11 @@ export default function AgendamentosPage() {
           Profissional: ag.profissional.nome,
           Status: ag.status
       }));
-
       const ws = XLSX.utils.json_to_sheet(dadosParaExcel);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Relatório");
-      
-      const nomeArquivo = `Relatorio_${abaAtiva}_${format(new Date(), 'dd-MM-yyyy')}.xlsx`;
-      XLSX.writeFile(wb, nomeArquivo);
+      XLSX.writeFile(wb, `Relatorio_${abaAtiva}_${format(new Date(), 'dd-MM-yyyy')}.xlsx`);
   };
-  // ----------------------------
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,7 +219,6 @@ export default function AgendamentosPage() {
   const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant?.corSecundaria || '#F3F4F6';
 
-  // Agrupamento Visual
   const agruparPorData = (lista: any[]) => {
     const grupos: any = {};
     lista.forEach(ag => {
@@ -238,7 +234,6 @@ export default function AgendamentosPage() {
   return (
     <div className="min-h-screen pb-20 md:pb-8" style={{ backgroundColor: corFundo }}>
       
-      {/* CABEÇALHO */}
       <div className="bg-white shadow-sm sticky top-0 z-20 px-6 py-4 flex justify-between items-center">
          <div className="flex items-center gap-4">
              <button onClick={() => router.push('/dashboard')} className="px-4 py-2 rounded-lg font-bold border-2 transition-colors flex items-center gap-2 hover:bg-gray-50" style={{ borderColor: corPrincipal, color: corPrincipal }}>
@@ -252,16 +247,13 @@ export default function AgendamentosPage() {
 
       <div className="max-w-6xl mx-auto p-4 md:p-6">
         
-        {/* ABAS */}
         <div className="flex bg-white p-1 rounded-xl shadow-sm mb-6 border border-gray-200 max-w-md">
             <button onClick={() => setAbaAtiva('proximos')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${abaAtiva === 'proximos' ? 'text-white shadow' : 'text-gray-500 hover:bg-gray-50'}`} style={abaAtiva === 'proximos' ? { backgroundColor: corPrincipal } : {}}>📅 Próximos</button>
             <button onClick={() => setAbaAtiva('historico')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${abaAtiva === 'historico' ? 'text-white shadow' : 'text-gray-500 hover:bg-gray-50'}`} style={abaAtiva === 'historico' ? { backgroundColor: corPrincipal } : {}}>📜 Histórico</button>
         </div>
 
-        {/* FILTROS (VISUAIS) */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
             
-            {/* FILTROS - PRÓXIMOS */}
             {abaAtiva === 'proximos' && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -285,104 +277,45 @@ export default function AgendamentosPage() {
                 </div>
             )}
 
-            {/* FILTROS - HISTÓRICO (COMPLETO + EXCEL) */}
             {abaAtiva === 'historico' && (
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 items-end">
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Início</label>
-                            <input type="date" className="w-full border rounded p-2 text-sm" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Fim</label>
-                            <input type="date" className="w-full border rounded p-2 text-sm" value={dataFim} onChange={e => setDataFim(e.target.value)} />
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Profissional</label>
-                            <select className="w-full border rounded p-2 text-sm bg-white" value={filtroHistProfissional} onChange={e => setFiltroHistProfissional(e.target.value)}>
-                                <option value="">Todos</option>
-                                {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Serviço</label>
-                            <select className="w-full border rounded p-2 text-sm bg-white" value={filtroHistServico} onChange={e => setFiltroHistServico(e.target.value)}>
-                                <option value="">Todos</option>
-                                {servicos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Cliente</label>
-                            <input type="text" placeholder="Buscar nome..." className="w-full border rounded p-2 text-sm" value={filtroHistCliente} onChange={e => setFiltroHistCliente(e.target.value)} />
-                        </div>
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">Início</label><input type="date" className="w-full border rounded p-2 text-sm" value={dataInicio} onChange={e => setDataInicio(e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">Fim</label><input type="date" className="w-full border rounded p-2 text-sm" value={dataFim} onChange={e => setDataFim(e.target.value)} /></div>
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">Profissional</label><select className="w-full border rounded p-2 text-sm bg-white" value={filtroHistProfissional} onChange={e => setFiltroHistProfissional(e.target.value)}><option value="">Todos</option>{profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></div>
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">Serviço</label><select className="w-full border rounded p-2 text-sm bg-white" value={filtroHistServico} onChange={e => setFiltroHistServico(e.target.value)}><option value="">Todos</option>{servicos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">Cliente</label><input type="text" placeholder="Buscar nome..." className="w-full border rounded p-2 text-sm" value={filtroHistCliente} onChange={e => setFiltroHistCliente(e.target.value)} /></div>
                     </div>
                     
                     <div className="flex justify-end border-t pt-4">
-                        <button 
-                            onClick={exportarExcel}
-                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold shadow flex items-center gap-2 transition-colors"
-                        >
-                            📊 Baixar Relatório Excel
-                        </button>
+                        <button onClick={exportarExcel} className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold shadow flex items-center gap-2 transition-colors">📊 Baixar Relatório Excel</button>
                     </div>
                 </div>
             )}
         </div>
 
-        {/* LISTA DE RESULTADOS */}
         {loading ? <p className="text-center p-10 text-gray-500">Carregando...</p> : (
             <div className="space-y-8">
-                {Object.keys(listaAgrupada).length === 0 && (
-                    <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-                        <p className="text-4xl mb-2">📅</p>
-                        <p className="text-gray-500">Nenhum agendamento encontrado.</p>
-                    </div>
-                )}
-
+                {Object.keys(listaAgrupada).length === 0 && (<div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300"><p className="text-4xl mb-2">📅</p><p className="text-gray-500">Nenhum agendamento encontrado.</p></div>)}
                 {Object.keys(listaAgrupada).map(dataKey => {
                     const date = new Date(dataKey);
                     let labelDia = format(date, "dd 'de' MMMM", { locale: ptBR });
-                    if (isToday(date)) labelDia = "Hoje";
-                    if (isTomorrow(date)) labelDia = "Amanhã";
-
+                    if (isToday(date)) labelDia = "Hoje"; if (isTomorrow(date)) labelDia = "Amanhã";
                     return (
                         <div key={dataKey}>
-                            <h3 className="text-sm font-bold text-gray-500 uppercase mb-3 ml-1 flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: corPrincipal }}></span> {labelDia}
-                            </h3>
-                            
+                            <h3 className="text-sm font-bold text-gray-500 uppercase mb-3 ml-1 flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: corPrincipal }}></span> {labelDia}</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {listaAgrupada[dataKey].map((ag: any) => {
-                                    const telLimpo = ag.cliente.telefone ? ag.cliente.telefone.replace(/\D/g, '') : '';
-                                    let corBadge = 'bg-gray-200 text-gray-600';
-                                    if (ag.status === 'CONCLUIDO') corBadge = 'bg-green-100 text-green-700';
-                                    if (ag.status === 'CONFIRMADO') corBadge = 'bg-blue-100 text-blue-700';
-                                    if (ag.status === 'CANCELADO') corBadge = 'bg-red-100 text-red-700';
-
-                                    return (
+                                {listaAgrupada[dataKey].map((ag: any) => (
                                     <div key={ag.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 transition-colors flex justify-between items-center hover:shadow-md">
                                         <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xl font-bold text-gray-800">
-                                                    {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}
-                                                </span>
-                                                <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${corBadge}`}>
-                                                    {ag.status}
-                                                </span>
-                                            </div>
+                                            <div className="flex items-center gap-2"><span className="text-xl font-bold text-gray-800">{new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</span><span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${ag.status === 'CONFIRMADO' ? 'bg-green-100 text-green-700' : ag.status === 'CONCLUIDO' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{ag.status}</span></div>
                                             <p className="text-gray-800 font-medium mt-1 text-lg">{ag.cliente.nome}</p>
-                                            <p className="text-sm text-gray-500 flex items-center gap-1">
-                                                {tema.icons.servico} {ag.servico.nome} <span className="text-gray-300">|</span> {tema.icons.profissional} {ag.profissional.nome.split(' ')[0]}
-                                            </p>
+                                            <p className="text-sm text-gray-500 flex items-center gap-1">{tema.icons.servico} {ag.servico.nome} <span className="text-gray-300">|</span> {tema.icons.profissional} {ag.profissional.nome.split(' ')[0]}</p>
                                             {ag.status === 'CANCELADO' && <p className="text-[10px] text-red-500 mt-1 font-bold">Cancelado por: {ag.canceladoPor}</p>}
                                         </div>
-                                        
-                                        {ag.status === 'CONFIRMADO' && (
-                                            <button onClick={() => handleCancel(ag.id)} className="bg-white border border-red-200 text-red-500 p-2 rounded-lg hover:bg-red-50 transition shadow-sm" title="Cancelar">✕</button>
-                                        )}
+                                        {ag.status === 'CONFIRMADO' && (<button onClick={() => handleCancel(ag.id)} className="bg-white border border-red-200 text-red-500 p-2 rounded-lg hover:bg-red-50 transition shadow-sm" title="Cancelar">✕</button>)}
                                     </div>
-                                );
-                                })}
+                                ))}
                             </div>
                         </div>
                     );
@@ -391,16 +324,11 @@ export default function AgendamentosPage() {
         )}
       </div>
 
-      {/* Modal Novo (Mantido igual) */}
       {modalAberto && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-800">Novo Agendamento</h2>
-                    <button onClick={() => setModalAberto(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
-                </div>
+                <div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold text-gray-800">Novo Agendamento</h2><button onClick={() => setModalAberto(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button></div>
                 <form onSubmit={handleCreate} className="space-y-4">
-                     {/* (Inputs iguais aos anteriores - Mantidos para brevidade) */}
                      <div><label className="text-xs font-bold text-gray-500 uppercase">Cliente</label><input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 outline-none" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar..." /><datalist id="lista-cli-modal">{clientes.map(c => <option key={c.id} value={c.nome} />)}</datalist></div>
                      <div><label className="text-xs font-bold text-gray-500 uppercase">WhatsApp</label><input required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 outline-none" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} /></div>
                      <div className="grid grid-cols-2 gap-3"><div><label className="text-xs font-bold text-gray-500 uppercase">Serviço</label><select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.serviceId} onChange={(e) => setNovoAgendamento({...novoAgendamento, serviceId: e.target.value})}><option value="">...</option>{servicos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div><div><label className="text-xs font-bold text-gray-500 uppercase">Profissional</label><select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.professionalId} onChange={(e) => setNovoAgendamento({...novoAgendamento, professionalId: e.target.value})}><option value="">...</option>{profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></div></div>
