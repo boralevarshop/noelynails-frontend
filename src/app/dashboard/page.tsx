@@ -23,7 +23,7 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(true);
   
-  // --- ESTATÍSTICAS (Adicionado faturamentoHoje) ---
+  // Estatísticas
   const [stats, setStats] = useState({ hoje: 0, faturamento: 0, faturamentoHoje: 0 });
   const [ranking, setRanking] = useState<any[]>([]);
 
@@ -137,11 +137,10 @@ export default function Dashboard() {
     // Faturamento Mês (Geral - Confirmado + Concluído)
     const totalMes = lista.reduce((acc: number, curr: any) => acc + Number(curr.servico.preco), 0);
 
-    // --- NOVO: FATURAMENTO DO DIA (SOMENTE CONCLUÍDOS) ---
+    // Faturamento do Dia (SOMENTE CONCLUÍDOS)
     const totalHoje = lista
         .filter((a: any) => a.dataHora.startsWith(hoje) && a.status === 'CONCLUIDO')
         .reduce((acc: number, curr: any) => acc + Number(curr.servico.preco), 0);
-    // -----------------------------------------------------
 
     setStats({ hoje: agendamentosHojeQtd, faturamento: totalMes, faturamentoHoje: totalHoje });
 
@@ -220,16 +219,18 @@ export default function Dashboard() {
             {i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : nomeDia} <span className="text-xs text-gray-400 font-normal">({dataString.slice(0,5)})</span>
           </h3>
           {agendamentosDoDia.length === 0 ? <p className="text-xs text-gray-400 italic text-center py-4">Livre</p> : (
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {agendamentosDoDia.map((ag: any) => {
                 const telLimpo = ag.cliente.telefone ? ag.cliente.telefone.replace(/\D/g, '') : '';
                 
                 return (
-                  <li key={ag.id} className="text-sm p-2 rounded border-l-4 bg-gray-50" style={{ borderLeftColor: corPrincipal }}>
-                    <strong className="block text-gray-800">{new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
+                  <li key={ag.id} className="text-sm p-2 rounded border-l-4 bg-gray-50 shadow-sm" style={{ borderLeftColor: corPrincipal }}>
+                    <strong className="block text-gray-800 text-xs mb-0.5">
+                        {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
+                    </strong>
                     
                     <div className="flex items-center gap-1">
-                        <span className="truncate font-medium text-gray-700 block">
+                        <span className="truncate font-bold text-gray-800 block">
                             {ag.cliente.nome}
                         </span>
                         {telLimpo && (
@@ -249,7 +250,7 @@ export default function Dashboard() {
                        {tema.icons.servico} {ag.servico.nome}
                     </p>
 
-                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-500">{ag.profissional.nome.split(' ')[0]}</p>}
+                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-400 font-semibold">{ag.profissional.nome.split(' ')[0]}</p>}
                   </li>
                 );
               })}
@@ -266,12 +267,11 @@ export default function Dashboard() {
   const isProfissional = usuario.role === 'PROFISSIONAL';
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
   
-  // --- DEFINIÇÃO DAS 4 CORES ---
+  // Cores
   const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant?.corSecundaria || '#F3F4F6';
   const corTerciaria = tenant?.corTerciaria || '#FFFFFF';
   const corTexto = tenant?.corTexto || '#FFFFFF';
-  // -----------------------------
 
   let planoLabel = null;
   if (tenant) {
@@ -398,13 +398,13 @@ export default function Dashboard() {
                 {tema.icons.dinheiro} {mostrarValores ? `R$ ${stats.faturamento.toFixed(2)}` : 'R$ ••••'}
             </dd>
             
-            {/* FATURAMENTO DE HOJE */}
-            <p className="text-xs text-gray-500 mt-2 pt-2 border-t flex justify-between">
-                <span>Hoje:</span>
-                <span className="font-bold text-green-600">
-                    {mostrarValores ? `R$ ${stats.faturamentoHoje.toFixed(2)}` : 'R$ •••'}
+            {/* FATURAMENTO DE HOJE (INVERTIDO A PEDIDO) */}
+            <div className="text-xs text-gray-500 mt-2 pt-2 border-t flex justify-between">
+                <span className="font-bold text-lg text-green-700">
+                    Hoje: {mostrarValores ? `R$ ${stats.faturamentoHoje.toFixed(2)}` : 'R$ •••'}
                 </span>
-            </p>
+                <span className="text-[10px] self-center opacity-70">Mês acumulado acima</span>
+            </div>
           </div>
         </div>
 
@@ -430,7 +430,6 @@ export default function Dashboard() {
             )}
         </div>
 
-        {/* LINK PÚBLICO */}
         {isDono && (
             <div className="mt-10 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white order-last md:order-first" style={{ backgroundColor: corPrincipal }}>
                 <div className="mb-3 md:mb-0 text-center md:text-left">
@@ -444,7 +443,7 @@ export default function Dashboard() {
             </div>
         )}
 
-        {/* MODAL NOVO AGENDAMENTO */}
+        {/* Modal */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
