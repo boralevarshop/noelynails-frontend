@@ -10,7 +10,7 @@ export default function ClientesPage() {
   const router = useRouter();
   const [clientes, setClientes] = useState<any[]>([]);
   const [usuario, setUsuario] = useState<any>(null);
-  const [tenant, setTenant] = useState<any>(null); // CORES
+  const [tenant, setTenant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
   const [tema, setTema] = useState(getTheme('SALAO_BELEZA'));
@@ -22,9 +22,10 @@ export default function ClientesPage() {
   // Estado para Histórico
   const [clienteHistorico, setClienteHistorico] = useState<any>(null); 
   
-  // Filtros do Histórico (NOVO)
+  // Filtros do Histórico
   const [buscaServicoHist, setBuscaServicoHist] = useState('');
   const [buscaDataHist, setBuscaDataHist] = useState('');
+  const [statusFiltroHist, setStatusFiltroHist] = useState('TODOS'); // NOVO: Filtro de Status
 
   // Filtro da Lista Principal
   const [busca, setBusca] = useState('');
@@ -112,22 +113,27 @@ export default function ClientesPage() {
     } catch (error) { alert('Erro de conexão'); }
   };
 
-  // Filtro da lista principal
+  // --- FUNÇÃO AUXILIAR: Remover acentos para busca ---
+  const normalizarTexto = (texto: string) => {
+      return texto ? texto.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
+  };
+
+  // Filtro da lista principal (Busca inteligente)
   const clientesFiltrados = clientes.filter(cli => 
-    cli.nome.toLowerCase().includes(busca.toLowerCase()) || 
+    normalizarTexto(cli.nome).includes(normalizarTexto(busca)) || 
     cli.telefone.includes(busca)
   );
 
-  // Filtro do Modal de Histórico (Somente Concluídos + Busca)
+  // Filtro do Modal de Histórico
   const getHistoricoFiltrado = () => {
       if (!clienteHistorico || !clienteHistorico.agendamentos) return [];
 
       return clienteHistorico.agendamentos.filter((ag: any) => {
-          // Regra 1: Somente CONCLUIDO
-          if (ag.status !== 'CONCLUIDO') return false;
+          // Regra 1: Filtro de Status (Dropdown)
+          if (statusFiltroHist !== 'TODOS' && ag.status !== statusFiltroHist) return false;
 
-          // Regra 2: Filtro por Nome do Serviço
-          if (buscaServicoHist && !ag.servico.nome.toLowerCase().includes(buscaServicoHist.toLowerCase())) return false;
+          // Regra 2: Filtro por Nome do Serviço (Sem acento)
+          if (buscaServicoHist && !normalizarTexto(ag.servico.nome).includes(normalizarTexto(buscaServicoHist))) return false;
 
           // Regra 3: Filtro por Data
           if (buscaDataHist && !ag.dataHora.startsWith(buscaDataHist)) return false;
@@ -234,8 +240,9 @@ export default function ClientesPage() {
                               <button 
                                 onClick={() => {
                                     setClienteHistorico(cli);
-                                    setBuscaServicoHist(''); // Reseta filtros ao abrir
+                                    setBuscaServicoHist('');
                                     setBuscaDataHist('');
+                                    setStatusFiltroHist('TODOS'); // Reseta filtro
                                 }} 
                                 className="text-gray-400 hover:text-indigo-600 hover:scale-110 transition-transform" 
                                 title="Ver Histórico Completo"
@@ -246,22 +253,31 @@ export default function ClientesPage() {
 
                           <p className="text-sm text-gray-500">{cli.telefone}</p>
                           
-                          {/* ÚLTIMA VISITA (Só concluídos) */}
+                          {/* ÚLTIMA VISITA */}
                           {ultimoAgendamento ? (
-                              <p className="text-[10px] text-gray-600 mt-1">
-                                  <span className="font-bold text-gray-800">Última visita:</span> {format(new Date(ultimoAgendamento.dataHora), 'dd/MM/yy')} ({ultimoAgendamento.servico.nome})
+                              <p className="text-[10px] text-gray-500 mt-1">
+                                  <strong className="text-gray-800">Última visita:</strong> {format(new Date(ultimoAgendamento.dataHora), 'dd/MM/yy')} ({ultimoAgendamento.servico.nome})
                               </p>
                           ) : (
                               <p className="text-[10px] text-gray-300 mt-1 italic">Nunca concluiu um agendamento</p>
                           )}
                         </div>
                         
-                        <div className="flex flex-col gap-2">
-                            <button onClick={() => iniciarEdicao(cli)} className="text-xs font-bold hover:underline" style={{ color: corPrincipal }}>
-                                Editar
+                        {/* BOTÕES DE AÇÃO MELHORADOS */}
+                        <div className="flex items-center gap-4">
+                            <button 
+                                onClick={() => iniciarEdicao(cli)} 
+                                className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold border transition-colors hover:bg-opacity-10"
+                                style={{ borderColor: corPrincipal, color: corPrincipal }}
+                            >
+                                ✏️ Editar
                             </button>
-                            <button onClick={() => handleDelete(cli.id)} className="text-red-400 hover:text-red-600 text-xs font-bold">
-                                Excluir
+                            
+                            <button 
+                                onClick={() => handleDelete(cli.id)} 
+                                className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+                            >
+                                🗑️ Excluir
                             </button>
                         </div>
                       </li>
@@ -276,69 +292,86 @@ export default function ClientesPage() {
         {/* MODAL DE HISTÓRICO COM FILTROS */}
         {clienteHistorico && (
             <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                <div className="bg-white w-full max-w-md rounded-xl p-6 shadow-2xl max-h-[80vh] flex flex-col">
+                <div className="bg-white w-full max-w-md rounded-xl p-6 shadow-2xl max-h-[85vh] flex flex-col">
                     
-                    {/* Header Modal */}
                     <div className="flex justify-between items-center mb-4 border-b pb-2">
                         <div>
                             <h3 className="text-lg font-bold text-gray-800">{clienteHistorico.nome}</h3>
-                            <p className="text-xs text-gray-500">Histórico de Serviços Realizados</p>
+                            <p className="text-xs text-gray-500">Histórico de Atendimentos</p>
                         </div>
                         <button onClick={() => setClienteHistorico(null)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
                     </div>
 
                     {/* Filtros do Histórico */}
-                    <div className="flex gap-2 mb-4">
-                        <input 
-                            type="text" 
-                            placeholder="Filtrar serviço..." 
-                            className="flex-1 border rounded px-2 py-1 text-sm outline-none focus:ring-1"
-                            style={{ '--tw-ring-color': corPrincipal } as any}
-                            value={buscaServicoHist}
-                            onChange={(e) => setBuscaServicoHist(e.target.value)}
-                        />
+                    <div className="flex flex-col gap-2 mb-4">
+                        <div className="flex gap-2">
+                            <select 
+                                className="border rounded px-2 py-1 text-sm outline-none focus:ring-1 w-1/3 bg-white"
+                                value={statusFiltroHist}
+                                onChange={(e) => setStatusFiltroHist(e.target.value)}
+                            >
+                                <option value="TODOS">Todos</option>
+                                <option value="CONCLUIDO">✅ Concluídos</option>
+                                <option value="CONFIRMADO">📅 Confirmados</option>
+                                <option value="PENDENTE">⏳ Pendentes</option>
+                                <option value="CANCELADO">❌ Cancelados</option>
+                            </select>
+                            <input 
+                                type="text" 
+                                placeholder="Filtrar serviço..." 
+                                className="flex-1 border rounded px-2 py-1 text-sm outline-none focus:ring-1"
+                                style={{ '--tw-ring-color': corPrincipal } as any}
+                                value={buscaServicoHist}
+                                onChange={(e) => setBuscaServicoHist(e.target.value)}
+                            />
+                        </div>
                         <input 
                             type="date" 
-                            className="w-32 border rounded px-2 py-1 text-sm outline-none focus:ring-1"
+                            className="w-full border rounded px-2 py-1 text-sm outline-none focus:ring-1"
                             style={{ '--tw-ring-color': corPrincipal } as any}
                             value={buscaDataHist}
                             onChange={(e) => setBuscaDataHist(e.target.value)}
                         />
                     </div>
 
-                    {/* Lista Filtrada (Scrollável) */}
+                    {/* Lista Filtrada */}
                     <div className="space-y-3 overflow-y-auto flex-1 pr-1">
                         {getHistoricoFiltrado().length > 0 ? (
-                            getHistoricoFiltrado().map((ag: any) => (
-                                <div key={ag.id} className="bg-gray-50 p-3 rounded border flex justify-between items-center hover:bg-white hover:shadow-sm transition-all">
-                                    <div>
-                                        <p className="font-bold text-gray-700 text-sm">
-                                            {tema.icons.servico} {ag.servico.nome}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                            {tema.icons.profissional} {ag.profissional.nome}
-                                        </p>
+                            getHistoricoFiltrado().map((ag: any) => {
+                                let corBadge = 'bg-gray-200 text-gray-600';
+                                if (ag.status === 'CONCLUIDO') corBadge = 'bg-green-100 text-green-700';
+                                if (ag.status === 'CONFIRMADO') corBadge = 'bg-blue-100 text-blue-700';
+                                if (ag.status === 'CANCELADO') corBadge = 'bg-red-100 text-red-700';
+                                if (ag.status === 'PENDENTE') corBadge = 'bg-yellow-100 text-yellow-700';
+
+                                return (
+                                    <div key={ag.id} className="bg-gray-50 p-3 rounded border flex justify-between items-center hover:bg-white hover:shadow-sm transition-all">
+                                        <div>
+                                            <p className="font-bold text-gray-700 text-sm">
+                                                {tema.icons.servico} {ag.servico.nome}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                {tema.icons.profissional} {ag.profissional.nome}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold text-gray-800 text-sm">
+                                                {format(new Date(ag.dataHora), 'dd/MM/yy')}
+                                            </p>
+                                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${corBadge}`}>
+                                                {ag.status}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-gray-800 text-sm">
-                                            {format(new Date(ag.dataHora), 'dd/MM/yy')}
-                                        </p>
-                                        <p className="text-[10px] text-gray-400">
-                                            {format(new Date(ag.dataHora), 'HH:mm')}
-                                        </p>
-                                        {/* Badge Verde (Concluído) */}
-                                        <span className="inline-block w-2 h-2 rounded-full bg-green-500 ml-1" title="Concluído"></span>
-                                    </div>
-                                </div>
-                            ))
+                                );
+                            })
                         ) : (
                             <div className="text-center py-8 text-gray-400">
                                 <p className="text-2xl mb-2">📭</p>
-                                <p className="text-sm">Nenhum serviço concluído encontrado com esses filtros.</p>
+                                <p className="text-sm">Nenhum agendamento encontrado com esses filtros.</p>
                             </div>
                         )}
                     </div>
-                    
                 </div>
             </div>
         )}
