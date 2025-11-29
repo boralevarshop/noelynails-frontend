@@ -1,39 +1,40 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { format, isToday, isTomorrow, parseISO, subDays, addMonths } from 'date-fns';
+import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import * as XLSX from 'xlsx'; 
-import { getTheme } from '../../utils/theme';
+import { getTheme } from '../../utils/theme'; // <--- CAMINHO RELATIVO CORRIGIDO
 
-export default function AgendamentosPage() {
+export default function Dashboard() {
   const router = useRouter();
-  
-  const [agendamentos, setAgendamentos] = useState<any[]>([]);
-  const [servicos, setServicos] = useState<any[]>([]);
-  const [profissionais, setProfissionais] = useState<any[]>([]);
-  const [clientes, setClientes] = useState<any[]>([]);
   const [usuario, setUsuario] = useState<any>(null);
-  const [tenant, setTenant] = useState<any>(null); 
+  const [tenant, setTenant] = useState<any>(null);
+  
+  const [tema, setTema] = useState(() => {
+      if (typeof window !== 'undefined') {
+          const cached = localStorage.getItem('tenant_cache');
+          if (cached) {
+              const t = JSON.parse(cached);
+              return getTheme(t.segmento || 'SALAO_BELEZA');
+          }
+      }
+      return getTheme('SALAO_BELEZA');
+  });
+  
+  const [todosAgendamentos, setTodosAgendamentos] = useState<any[]>([]);
+  const [profissionais, setProfissionais] = useState<any[]>([]);
+  const [agendamentosFiltrados, setAgendamentosFiltrados] = useState<any[]>([]);
+  const [filtroId, setFiltroId] = useState('');
+  const [mostrarValores, setMostrarValores] = useState(false);
+
   const [loading, setLoading] = useState(true);
-  
-  // Estados de Controle
-  const [abaAtiva, setAbaAtiva] = useState<'proximos' | 'historico'>('proximos');
+  const [stats, setStats] = useState({ hoje: 0, faturamento: 0, faturamentoHoje: 0 });
+  const [ranking, setRanking] = useState<any[]>([]);
+
   const [modalAberto, setModalAberto] = useState(false);
-  const [tema, setTema] = useState(getTheme('SALAO_BELEZA'));
-
-  // --- FILTROS ---
-  const [busca, setBusca] = useState('');
-  
-  // Filtros Histórico (Padrão: Últimos 7 dias)
-  const [dataInicio, setDataInicio] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd')); 
-  const [dataFim, setDataFim] = useState(format(new Date(), 'yyyy-MM-dd')); 
-  const [filtroHistProfissional, setFiltroHistProfissional] = useState('');
-  const [filtroHistServico, setFiltroHistServico] = useState('');
-  // --------------
-
-  // Formulário Novo
+  const [servicos, setServicos] = useState<any[]>([]);
+  const [clientes, setClientes] = useState<any[]>([]);
   const [dataSelecionada, setDataSelecionada] = useState('');
   const [horarioSelecionado, setHorarioSelecionado] = useState('');
   const [novoAgendamento, setNovoAgendamento] = useState({
@@ -51,8 +52,8 @@ export default function AgendamentosPage() {
     if (!dadosSalvos) { router.push('/login'); return; }
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
-    
-    // Define tema do cache para rapidez
+    setFiltroId(user.id); 
+
     const cachedTenant = localStorage.getItem('tenant_cache');
     if (cachedTenant) {
         const t = JSON.parse(cachedTenant);
@@ -60,106 +61,84 @@ export default function AgendamentosPage() {
         setTema(getTheme(t.segmento || 'SALAO_BELEZA'));
     }
 
-    carregarDadosIniciais(user.tenant.id);
+    fetchDados(user.tenant.id);
+    carregarListas(user.tenant.id);
   }, []);
 
-  // Pré-seleção
+  useEffect(() => { filtrarEstatistiscas(); }, [filtroId, todosAgendamentos]);
+
   useEffect(() => {
-    if (usuario && profissionais.length > 0) {
-        const souProfissional = profissionais.find(p => p.id === usuario.id);
-        if (souProfissional) {
+    if (modalAberto && usuario) {
+        if (usuario.role === 'PROFISSIONAL') {
             setNovoAgendamento(prev => ({ ...prev, professionalId: usuario.id }));
+        } else if (filtroId && filtroId !== 'todos') {
+            setNovoAgendamento(prev => ({ ...prev, professionalId: filtroId }));
+        } else {
+            setNovoAgendamento(prev => ({ ...prev, professionalId: '' }));
         }
     }
-  }, [usuario, profissionais, modalAberto]);
+  }, [modalAberto, usuario, filtroId]);
 
-  // --- CARREGAMENTO INICIAL OTIMIZADO ---
-  const carregarDadosIniciais = async (tenantId: string) => {
+  const fetchDados = async (tenantId: string) => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      
-      // Define range inicial: 7 dias atrás até 6 meses no futuro (para pegar agenda futura)
-      const start = format(subDays(new Date(), 7), 'yyyy-MM-dd');
-      const end = format(addMonths(new Date(), 6), 'yyyy-MM-dd');
-
-      const [resServ, resProf, resAgenda, resCli, resTenant] = await Promise.all([
-        fetch(`${apiUrl}/services/tenant/${tenantId}`),
+      const [resAgenda, resProf, resTenant] = await Promise.all([
+        fetch(`${apiUrl}/appointments/tenant/${tenantId}`),
         fetch(`${apiUrl}/professionals/tenant/${tenantId}`),
-        // OTIMIZAÇÃO: Traz apenas dados recentes e futuros
-        fetch(`${apiUrl}/appointments/tenant/${tenantId}?startDate=${start}&endDate=${end}`),
-        fetch(`${apiUrl}/clients/tenant/${tenantId}`),
         fetch(`${apiUrl}/tenants/${tenantId}`)
       ]);
 
-      if (resServ.ok) setServicos(await resServ.json());
-      if (resProf.ok) setProfissionais(await resProf.json());
-      if (resCli.ok) setClientes(await resCli.json());
-      if (resTenant.ok) {
-          const t = await resTenant.json();
-          setTenant(t);
-          setTema(getTheme(t.segmento || 'SALAO_BELEZA'));
-          localStorage.setItem('tenant_cache', JSON.stringify(t));
-      }
-      if (resAgenda.ok) setAgendamentos(await resAgenda.json());
+      const dadosAgenda = await resAgenda.json();
+      const dadosProf = await resProf.json();
+      const dadosTenant = await resTenant.json();
+
+      setTenant(dadosTenant);
+      setTema(getTheme(dadosTenant.segmento || 'SALAO_BELEZA'));
+      localStorage.setItem('tenant_cache', JSON.stringify(dadosTenant));
       
-    } catch (error) { console.error(error); } 
+      const ativos = dadosAgenda.filter((a: any) => a.status !== 'CANCELADO');
+      setTodosAgendamentos(ativos);
+      setProfissionais(dadosProf);
+    } catch (error) { console.error('Erro ao buscar dados', error); } 
     finally { setLoading(false); }
   };
 
-  // --- BUSCA ESPECÍFICA (HISTÓRICO) ---
-  const buscarHistoricoBackend = async () => {
-      if (!usuario) return;
-      setLoading(true);
-      try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-          // Busca exatamente o período que o usuário selecionou nos filtros
-          const res = await fetch(`${apiUrl}/appointments/tenant/${usuario.tenant.id}?startDate=${dataInicio}&endDate=${dataFim}`);
-          if (res.ok) {
-              setAgendamentos(await res.json());
-          }
-      } catch (error) { alert('Erro ao buscar dados.'); }
-      finally { setLoading(false); }
+  const carregarListas = async (tenantId: string) => {
+    try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        const [resServ, resCli] = await Promise.all([
+            fetch(`${apiUrl}/services/tenant/${tenantId}`),
+            fetch(`${apiUrl}/clients/tenant/${tenantId}`)
+        ]);
+        if (resServ.ok) setServicos(await resServ.json());
+        if (resCli.ok) setClientes(await resCli.json());
+    } catch (e) { console.error(e); }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!usuario) return;
-    try {
-      const dataHoraCombinada = new Date(`${dataSelecionada}T${horarioSelecionado}:00`);
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      const res = await fetch(`${apiUrl}/appointments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...novoAgendamento,
-          tenantId: usuario.tenant.id,
-          dataHora: dataHoraCombinada.toISOString(),
-          isInternal: true 
-        })
-      });
+  const filtrarEstatistiscas = () => {
+    if (!filtroId) return;
+    let lista = todosAgendamentos;
+    if (filtroId !== 'todos') lista = todosAgendamentos.filter(ag => ag.profissional.id === filtroId);
+    setAgendamentosFiltrados(lista);
 
-      if (res.ok) {
-        alert('Agendamento realizado! 📅');
-        setNovoAgendamento({ nomeCliente: '', telefoneCliente: '', serviceId: '', professionalId: '' });
-        setDataSelecionada(''); setHorarioSelecionado('');
-        setModalAberto(false);
-        // Recarrega dados padrão
-        carregarDadosIniciais(usuario.tenant.id);
-      } else { const erro = await res.json(); alert(`Erro: ${erro.message}`); }
-    } catch (error) { alert('Erro de conexão'); }
-  };
+    const hoje = new Date().toISOString().split('T')[0];
+    const agendamentosHojeQtd = lista.filter((a: any) => a.dataHora.startsWith(hoje)).length;
+    const totalMes = lista.reduce((acc: number, curr: any) => acc + Number(curr.servico.preco), 0);
+    const totalHoje = lista
+        .filter((a: any) => a.dataHora.startsWith(hoje) && a.status === 'CONCLUIDO')
+        .reduce((acc: number, curr: any) => acc + Number(curr.servico.preco), 0);
 
-  const handleCancel = async (id: string) => {
-    if (!confirm('Cancelar este agendamento?')) return;
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      await fetch(`${apiUrl}/appointments/${id}/cancel`, { 
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome: usuario.nome }) 
-      });
-      // Atualiza a lista localmente para não precisar ir no servidor de novo
-      setAgendamentos(prev => prev.map(ag => ag.id === id ? { ...ag, status: 'CANCELADO', canceladoPor: usuario.nome } : ag));
-    } catch (error) { alert('Erro de conexão'); }
+    setStats({ hoje: agendamentosHojeQtd, faturamento: totalMes, faturamentoHoje: totalHoje });
+
+    const agrupado: any = {};
+    todosAgendamentos.forEach((ag: any) => {
+      const nome = ag.profissional.nome;
+      if (!agrupado[nome]) agrupado[nome] = { qtd: 0, total: 0 };
+      agrupado[nome].qtd += 1;
+      agrupado[nome].total += Number(ag.servico.preco);
+    });
+    const rankingArray = Object.keys(agrupado).map(key => ({ nome: key, ...agrupado[key] })).sort((a, b) => b.total - a.total);
+    setRanking(rankingArray);
   };
 
   const handleNomeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,177 +148,197 @@ export default function AgendamentosPage() {
     if (cli) setNovoAgendamento(prev => ({ ...prev, nomeCliente: val, telefoneCliente: cli.telefone }));
   };
 
-  // --- FILTRO LOCAL (MEMÓRIA) ---
-  const getListaFiltrada = () => {
-    let lista = agendamentos;
-    const termo = busca.toLowerCase();
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!usuario) return;
+    try {
+      const dataHoraCombinada = new Date(`${dataSelecionada}T${horarioSelecionado}:00`);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      const res = await fetch(`${apiUrl}/appointments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...novoAgendamento, tenantId: usuario.tenant.id, dataHora: dataHoraCombinada.toISOString(), isInternal: true })
+      });
+      if (res.ok) {
+        alert('Agendamento realizado! ' + tema.icons.agenda);
+        setNovoAgendamento({ nomeCliente: '', telefoneCliente: '', serviceId: '', professionalId: '' });
+        setDataSelecionada(''); setHorarioSelecionado('');
+        setModalAberto(false);
+        fetchDados(usuario.tenant.id);
+      } else { const erro = await res.json(); alert(`Erro: ${erro.message}`); }
+    } catch (error) { alert('Erro de conexão'); }
+  };
 
-    if (abaAtiva === 'proximos') {
-        // Aba Próximos: Mostra Confirmados futuros
-        lista = lista.filter(a => a.status === 'CONFIRMADO');
-        if (busca) lista = lista.filter(a => a.cliente.nome.toLowerCase().includes(termo) || a.cliente.telefone?.includes(termo));
-        
-        // Ordena Ascendente (Mais perto primeiro)
-        return lista.sort((a, b) => new Date(a.dataHora).getTime() - new Date(b.dataHora).getTime());
-    } else {
-        // Aba Histórico: Mostra o que veio do banco (já filtrado por data) + Filtros de texto locais
-        lista = lista.filter(a => a.status !== 'CONFIRMADO' && a.status !== 'PENDENTE'); // Mostra Concluido/Cancelado
-        
-        if (filtroHistProfissional) lista = lista.filter(a => a.profissional.id === filtroHistProfissional);
-        if (filtroHistServico) lista = lista.filter(a => a.servico.id === filtroHistServico);
-        if (busca) lista = lista.filter(a => a.cliente.nome.toLowerCase().includes(termo));
+  // --- DEFINIÇÃO DOS ÍCONES E VARIÁVEIS FORA DO RENDER ---
+  const IconEyeOpen = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>);
+  const IconEyeClosed = () => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>);
 
-        // Ordena Descendente (Mais recente primeiro)
-        return lista.sort((a, b) => new Date(b.dataHora).getTime() - new Date(a.dataHora).getTime());
+  const renderAgendaSemana = () => {
+    const dias = []; const hoje = new Date();
+    for (let i = 0; i < 5; i++) {
+      const diaAtual = new Date(hoje); diaAtual.setDate(hoje.getDate() + i);
+      const dataString = diaAtual.toLocaleDateString('pt-BR');
+      const nomeDia = diaAtual.toLocaleDateString('pt-BR', { weekday: 'long' });
+      const agendamentosDoDia = agendamentosFiltrados.filter((a: any) => new Date(a.dataHora).toLocaleDateString('pt-BR') === dataString);
+      
+      // Cores usadas dentro do loop
+      const cardBg = tenant?.corTerciaria || '#FFFFFF';
+      const cardBorder = '#E5E7EB';
+      const borderLeftColor = tenant?.corPrimaria || '#4F46E5';
+
+      dias.push(
+        <div key={i} className="p-4 rounded-lg shadow border" style={{ backgroundColor: cardBg, borderColor: cardBorder }}>
+          <h3 className="font-bold text-gray-700 capitalize mb-2 border-b pb-2">
+            {i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : nomeDia} <span className="text-xs text-gray-400 font-normal">({dataString.slice(0,5)})</span>
+          </h3>
+          {agendamentosDoDia.length === 0 ? <p className="text-xs text-gray-400 italic text-center py-4">Livre</p> : (
+            <ul className="space-y-2">
+              {agendamentosDoDia.map((ag: any) => {
+                const telLimpo = ag.cliente.telefone ? ag.cliente.telefone.replace(/\D/g, '') : '';
+                return (
+                  <li key={ag.id} className="text-sm p-2 rounded border-l-4 bg-gray-50 shadow-sm" style={{ borderLeftColor: borderLeftColor }}>
+                    <strong className="block text-gray-800 text-xs mb-0.5">{new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
+                    <div className="flex items-center gap-1">
+                        <span className="truncate font-bold text-gray-800 block">{ag.cliente.nome}</span>
+                        {telLimpo && ( <a href={`https://wa.me/55${telLimpo}`} target="_blank" rel="noreferrer" className="text-green-500 hover:text-green-600 transition-colors p-0.5" title="WhatsApp"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"> <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM8.003 14.527a6.56 6.56 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/> </svg> </a>)}
+                    </div>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">{tema.icons.servico} {ag.servico.nome}</p>
+                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-500">{ag.profissional.nome.split(' ')[0]}</p>}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      );
     }
+    return dias;
   };
 
-  const listaAtual = getListaFiltrada();
-
-  const exportarExcel = () => {
-      if (listaAtual.length === 0) { alert('Nada para exportar.'); return; }
-      const dadosParaExcel = listaAtual.map(ag => ({
-          Data: format(new Date(ag.dataHora), 'dd/MM/yyyy'),
-          Hora: format(new Date(ag.dataHora), 'HH:mm'),
-          Cliente: ag.cliente.nome,
-          Telefone: ag.cliente.telefone,
-          Serviço: ag.servico.nome,
-          Valor: Number(ag.servico.preco),
-          Profissional: ag.profissional.nome,
-          Status: ag.status
-      }));
-      const ws = XLSX.utils.json_to_sheet(dadosParaExcel);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Relatório");
-      XLSX.writeFile(wb, `Relatorio_${abaAtiva}_${format(new Date(), 'dd-MM-yyyy')}.xlsx`);
-  };
-
+  if (!usuario) return <div className="p-10">Carregando...</div>;
+  
+  const isProfissional = usuario.role === 'PROFISSIONAL';
+  const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
   const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant?.corSecundaria || '#F3F4F6';
   const corTerciaria = tenant?.corTerciaria || '#FFFFFF';
   const corTexto = tenant?.corTexto || '#FFFFFF';
+  const linkPublico = usuario.tenant?.slug ? `agendar.devhenri.shop/${usuario.tenant.slug}` : '';
 
-  const agruparPorData = (lista: any[]) => {
-    const grupos: any = {};
-    lista.forEach(ag => {
-        const dataKey = new Date(ag.dataHora).toDateString();
-        if (!grupos[dataKey]) grupos[dataKey] = [];
-        grupos[dataKey].push(ag);
-    });
-    return grupos;
-  };
-  
-  const listaAgrupada = agruparPorData(listaAtual);
+  let planoLabel = null;
+  if (tenant) {
+      if (tenant.statusAssinatura === 'TRIAL') {
+          const dias = Math.ceil((new Date(tenant.trialFim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+          planoLabel = <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold border border-green-300 shadow-sm animate-pulse">💎 Teste: {dias} dias</span>;
+      } else if (tenant.plano === 'FREE') {
+          planoLabel = <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full font-bold">Free</span>;
+      } else {
+          planoLabel = <span className="text-xs px-2 py-1 rounded-full font-bold" style={{ backgroundColor: corPrincipal, color: corTexto }}>{tenant.plano}</span>;
+      }
+  }
 
   return (
-    <div className="min-h-screen pb-20 md:pb-8" style={{ backgroundColor: corFundo }}>
-      
-      <div className="bg-white shadow-sm sticky top-0 z-20 px-6 py-4 flex justify-between items-center">
-         <div className="flex items-center gap-4">
-             <button onClick={() => router.push('/dashboard')} className="px-4 py-2 rounded-lg font-bold border-2 transition-colors flex items-center gap-2 hover:bg-gray-50" style={{ borderColor: corPrincipal, color: corPrincipal }}>
-                <span>←</span> Voltar ao Painel
-             </button>
-             <h1 className="text-xl font-bold text-gray-800 hidden md:block">Agenda Inteligente</h1>
-         </div>
-         <button onClick={() => setModalAberto(true)} className="hidden md:block text-white px-4 py-2 rounded-lg font-bold transition-colors hover:opacity-90" style={{ backgroundColor: corPrincipal }}>+ Novo Agendamento</button>
-         <h1 className="text-lg font-bold md:hidden" style={{ color: '#1F2937' }}>Agenda</h1>
-      </div>
+    <div className="min-h-screen pb-20 md:pb-0 transition-colors duration-500" style={{ backgroundColor: corFundo }}>
+      {/* Navbar */}
+      <nav className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center gap-3">
+              <h1 className="text-lg md:text-xl font-bold truncate" style={{ color: corPrincipal }}>{usuario.tenant.nome}</h1>
+              <div className="hidden md:block">{planoLabel}</div>
+              <div className="hidden md:flex space-x-1 ml-4">
+                {[
+                    { path: '/dashboard/agendamentos', icon: tema.icons.agenda, label: 'Agenda' },
+                    { path: '/dashboard/calendario', icon: '🗓️', label: 'Calendário' },
+                    { path: '/dashboard/servicos', icon: tema.icons.servico, label: 'Serviços' },
+                    { path: '/dashboard/profissionais', icon: tema.icons.profissional, label: 'Equipe' },
+                    { path: '/dashboard/clientes', icon: tema.icons.cliente, label: 'Clientes' },
+                    { path: '/dashboard/bloqueios', icon: '⛔', label: 'Bloqueios' },
+                ].map((item) => (
+                    <button key={item.path} onClick={() => router.push(item.path)} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium flex gap-1 items-center">{item.icon} {item.label}</button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              {usuario.role === 'ADMIN_GLOBAL' && <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black shadow-sm">👑 ADMIN</button>}
+              <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full border bg-white" style={{ color: corPrincipal, borderColor: corPrincipal }}>💎</button>
+              <button onClick={() => router.push('/dashboard/perfil')} className="flex items-center gap-2 hover:opacity-80 transition-opacity group" title="Meu Perfil">
+                  <div className="h-9 w-9 rounded-full overflow-hidden border-2 flex items-center justify-center bg-gray-100 shadow-sm" style={{ borderColor: corPrincipal }}>{usuario.avatarUrl ? (<img src={usuario.avatarUrl} alt={usuario.nome} className="h-full w-full object-cover" />) : (<span className="text-xs font-bold" style={{ color: corPrincipal }}>{usuario.nome.charAt(0).toUpperCase()}</span>)}</div>
+                  <div className="hidden md:flex flex-col items-start text-sm"><span className="font-bold text-gray-700 leading-tight">{usuario.nome.split(' ')[0]}</span><span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold">{usuario.role === 'DONO_SALAO' ? 'Dono' : 'Pro'}</span></div>
+              </button>
+              <button onClick={() => { localStorage.removeItem('usuario_saas'); router.push('/login'); }} className="text-sm text-red-600 hover:text-red-800 font-semibold px-2">Sair</button>
+            </div>
+          </div>
+        </div>
+        <div className="md:hidden border-t border-gray-200 bg-gray-50">
+            <div className="grid grid-cols-6 divide-x divide-gray-200">
+                <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium hover:bg-gray-100 flex flex-col items-center" style={{ color: corPrincipal }}><span>{tema.icons.agenda}</span> Agenda</button>
+                <button onClick={() => router.push('/dashboard/calendario')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>🗓️</span> Mês</button>
+                <button onClick={() => router.push('/dashboard/servicos')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>{tema.icons.servico}</span> Serv</button>
+                <button onClick={() => router.push('/dashboard/profissionais')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>{tema.icons.profissional}</span> Eqp</button>
+                <button onClick={() => router.push('/dashboard/clientes')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>{tema.icons.cliente}</span> Cli</button>
+                <button onClick={() => router.push('/dashboard/bloqueios')} className="py-3 text-[10px] font-medium text-red-600 hover:bg-red-50 flex flex-col items-center"><span>⛔</span> Bloq</button>
+            </div>
+            <div className="bg-white border-t border-gray-200 py-1 text-center">{planoLabel}</div>
+        </div>
+      </nav>
 
-      <div className="max-w-5xl mx-auto p-4 md:p-6">
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {/* ... Resto do layout igual ao anterior (Cards, Grids e Modal) ... */}
         
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            {/* Abas */}
-            <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 w-full md:w-auto">
-                <button onClick={() => setAbaAtiva('proximos')} className={`flex-1 px-6 py-2 text-sm font-bold rounded-lg transition-all ${abaAtiva === 'proximos' ? 'text-white shadow' : 'text-gray-500 hover:bg-gray-50'}`} style={abaAtiva === 'proximos' ? { backgroundColor: corPrincipal } : {}}>📅 Próximos</button>
-                <button onClick={() => setAbaAtiva('historico')} className={`flex-1 px-6 py-2 text-sm font-bold rounded-lg transition-all ${abaAtiva === 'historico' ? 'text-white shadow' : 'text-gray-500 hover:bg-gray-50'}`} style={abaAtiva === 'historico' ? { backgroundColor: corPrincipal } : {}}>📜 Histórico</button>
+        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <div className="flex items-center gap-3 w-full md:w-auto">
+                <h2 className="text-lg font-bold text-gray-800 whitespace-nowrap">{filtroId === 'todos' ? 'Visão Geral' : isProfissional ? `Minha Agenda` : `Agenda de ${profissionais.find(p => p.id === filtroId)?.nome || '...'}`}</h2>
+                <select value={filtroId} onChange={(e) => setFiltroId(e.target.value)} disabled={isProfissional} className={`border border-gray-300 rounded-md p-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 ${isProfissional ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} style={{ borderColor: corPrincipal }}>{!isProfissional && <option value="todos">👀 Ver Todos</option>}{profissionais.map(prof => (<option key={prof.id} value={prof.id}>{prof.id === usuario.id ? '👤 Minha Agenda' : `👤 ${prof.nome}`}</option>))}</select>
             </div>
-
-            {/* CAMPO DE BUSCA (COMUM) */}
-            <div className="w-full md:w-64">
-                <input type="text" placeholder="🔍 Buscar cliente..." className="w-full border rounded-lg px-4 py-2 outline-none focus:ring-2 bg-white shadow-sm" style={{ '--tw-ring-color': corPrincipal } as any} value={busca} onChange={(e) => setBusca(e.target.value)} />
-            </div>
+            <button onClick={() => setModalAberto(true)} className="w-full md:w-auto text-white px-6 py-2 rounded-lg font-bold shadow-md transition-transform active:scale-95 flex items-center justify-center gap-2" style={{ backgroundColor: corPrincipal, color: corTexto }}><span>+</span> {tema.labels.novoAgendamento}</button>
         </div>
 
-        {/* --- ÁREA DE FILTROS DO HISTÓRICO (SOMENTE SE ESTIVER NA ABA HISTÓRICO) --- */}
-        {abaAtiva === 'historico' && (
-             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 animate-fade-in">
-                <h3 className="text-xs font-bold text-gray-400 uppercase mb-3">Filtrar Período e Dados</h3>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 items-end">
-                    <div><label className="text-xs font-bold text-gray-500">Início</label><input type="date" className="w-full border rounded p-2 text-sm" value={dataInicio} onChange={e => setDataInicio(e.target.value)} /></div>
-                    <div><label className="text-xs font-bold text-gray-500">Fim</label><input type="date" className="w-full border rounded p-2 text-sm" value={dataFim} onChange={e => setDataFim(e.target.value)} /></div>
-                    <div><label className="text-xs font-bold text-gray-500">Profissional</label><select className="w-full border rounded p-2 text-sm bg-white" value={filtroHistProfissional} onChange={e => setFiltroHistProfissional(e.target.value)}><option value="">Todos</option>{profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></div>
-                    <div><label className="text-xs font-bold text-gray-500">Serviço</label><select className="w-full border rounded p-2 text-sm bg-white" value={filtroHistServico} onChange={e => setFiltroHistServico(e.target.value)}><option value="">Todos</option>{servicos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
-                    
-                    {/* BOTÃO DE BUSCAR NO SERVIDOR */}
-                    <button 
-                        onClick={buscarHistoricoBackend}
-                        className="w-full bg-gray-800 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-black flex items-center justify-center gap-2 transition-colors"
-                    >
-                        🔎 Filtrar
-                    </button>
-                </div>
-                
-                <div className="mt-4 pt-4 border-t flex justify-end">
-                    <button onClick={exportarExcel} className="text-green-600 font-bold text-sm hover:underline flex items-center gap-1">📊 Baixar Excel</button>
-                </div>
-             </div>
-        )}
-
-        {/* LISTA DE AGENDAMENTOS */}
-        {loading ? <p className="text-center p-10 text-gray-500">Carregando agenda...</p> : (
-            <div className="space-y-8">
-                {Object.keys(listaAgrupada).length === 0 && (<div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300"><p className="text-4xl mb-2">📅</p><p className="text-gray-500">Nenhum agendamento encontrado.</p></div>)}
-                {Object.keys(listaAgrupada).map(dataKey => {
-                    const date = new Date(dataKey);
-                    let labelDia = format(date, "dd 'de' MMMM", { locale: ptBR });
-                    if (isToday(date)) labelDia = "Hoje"; if (isTomorrow(date)) labelDia = "Amanhã";
-                    return (
-                        <div key={dataKey}>
-                            <h3 className="text-sm font-bold text-gray-500 uppercase mb-3 ml-1 flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: corPrincipal }}></span> {labelDia}</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {listaAgrupada[dataKey].map((ag: any) => {
-                                    const telLimpo = ag.cliente.telefone ? ag.cliente.telefone.replace(/\D/g, '') : '';
-                                    let corBadge = 'bg-gray-200 text-gray-600';
-                                    if (ag.status === 'CONCLUIDO') corBadge = 'bg-green-100 text-green-700';
-                                    if (ag.status === 'CONFIRMADO') corBadge = 'bg-blue-100 text-blue-700';
-                                    if (ag.status === 'CANCELADO') corBadge = 'bg-red-100 text-red-700';
-
-                                    return (
-                                    <div key={ag.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 transition-colors flex justify-between items-center hover:shadow-md">
-                                        <div>
-                                            <div className="flex items-center gap-2"><span className="text-xl font-bold text-gray-800">{new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</span><span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${corBadge}`}>{ag.status}</span></div>
-                                            <div className="flex items-center gap-2 mt-1"><p className="text-gray-800 font-medium text-lg">{ag.cliente.nome}</p>{telLimpo && ( <a href={`https://wa.me/55${telLimpo}`} target="_blank" rel="noreferrer" className="text-green-500 hover:text-green-600 transition-transform hover:scale-110" title="WhatsApp"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"> <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM8.003 14.527a6.56 6.56 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/> </svg> </a>)}
-                                            </div>
-                                            <p className="text-sm text-gray-500 flex items-center gap-1">{tema.icons.servico} {ag.servico.nome} <span className="text-gray-300">|</span> {tema.icons.profissional} {ag.profissional.nome.split(' ')[0]}</p>
-                                            {ag.status === 'CANCELADO' && <p className="text-[10px] text-red-500 mt-1 font-bold">Cancelado por: {ag.canceladoPor}</p>}
-                                        </div>
-                                        {ag.status === 'CONFIRMADO' && (<button onClick={() => handleCancel(ag.id)} className="bg-white border border-red-200 text-red-500 p-2 rounded-lg hover:bg-red-50 transition shadow-sm" title="Cancelar">✕</button>)}
-                                    </div>
-                                );
-                                })}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        )}
-      </div>
-
-      {modalAberto && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold text-gray-800" style={{ color: corPrincipal }}>{tema.labels.novoAgendamento}</h2><button onClick={() => setModalAberto(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button></div>
-                <form onSubmit={handleCreate} className="space-y-4">
-                     <div><label className="text-xs font-bold text-gray-500 uppercase">{tema.labels.cliente}</label><input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 outline-none" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar..." /><datalist id="lista-cli-modal">{clientes.map(c => <option key={c.id} value={c.nome} />)}</datalist></div>
-                     <div><label className="text-xs font-bold text-gray-500 uppercase">WhatsApp</label><input required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 outline-none" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} placeholder="11..." /></div>
-                     <div className="grid grid-cols-2 gap-3"><div><label className="text-xs font-bold text-gray-500 uppercase">{tema.labels.servico}</label><select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.serviceId} onChange={(e) => setNovoAgendamento({...novoAgendamento, serviceId: e.target.value})}><option value="">Selecione...</option>{servicos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div><div><label className="text-xs font-bold text-gray-500 uppercase">{tema.labels.profissional}</label><select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.professionalId} onChange={(e) => setNovoAgendamento({...novoAgendamento, professionalId: e.target.value})}><option value="">Selecione...</option>{profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></div></div>
-                     <div className="grid grid-cols-2 gap-3"><div><label className="text-xs font-bold text-gray-500 uppercase">Data</label><input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} onChange={(e) => setDataSelecionada(e.target.value)} /></div><div><label className="text-xs font-bold text-gray-500 uppercase">Hora</label><select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={horarioSelecionado} onChange={(e) => setHorarioSelecionado(e.target.value)}><option value="">...</option>{horariosDisponiveis.map(h => <option key={h} value={h}>{h}</option>)}</select></div></div>
-                     <button type="submit" className="w-full text-white py-4 rounded-xl font-bold text-lg shadow-lg mt-4" style={{ backgroundColor: corPrincipal, color: corTexto }}>Confirmar</button>
-                </form>
-            </div>
+        {/* CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="shadow rounded-lg p-5" style={{ backgroundColor: corTerciaria }}>
+            <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Agendamentos Totais Hoje' : 'Meus Agendamentos Hoje'} ({stats.hoje})</dt>
+            <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2"><div className="h-2.5 rounded-full" style={{ width: `${Math.min(stats.hoje * 10, 100)}%`, backgroundColor: corPrincipal }}></div></div>
+          </div>
+          <div className="shadow rounded-lg p-5 relative" style={{ backgroundColor: corTerciaria }}>
+            <div className="flex justify-between items-start"><dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Faturamento Hoje' : 'Meu Faturamento Hoje'}</dt><button onClick={() => setMostrarValores(!mostrarValores)} className="text-gray-400 hover:opacity-70 transition" style={{ color: corPrincipal }}>{mostrarValores ? <IconEyeOpen /> : <IconEyeClosed />}</button></div>
+            <dd className="mt-1 text-3xl font-semibold text-green-600 flex items-center gap-2">{tema.icons.dinheiro} {mostrarValores ? `R$ ${stats.faturamentoHoje.toFixed(2)}` : 'R$ ••••'}</dd>
+            <div className="text-xs text-gray-500 mt-2 pt-2 border-t flex justify-between"><span className="text-[10px] self-center opacity-70 uppercase font-bold">Acumulado Mês:</span><span className="font-bold text-gray-700">{mostrarValores ? `R$ ${stats.faturamento.toFixed(2)}` : 'R$ •••'}</span></div>
+          </div>
         </div>
-      )}
-      {abaAtiva === 'proximos' && <button onClick={() => setModalAberto(true)} className="md:hidden fixed bottom-20 right-6 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-3xl hover:scale-110 transition-transform z-50" style={{ backgroundColor: corPrincipal }}>+</button>}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className={isDono ? "lg:col-span-2" : "lg:col-span-3"}>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Agenda da Semana</h2>
+                {loading ? <div className="animate-pulse h-40 bg-gray-200 rounded-lg"></div> : <div className={isDono ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"}>{renderAgendaSemana()}</div>}
+            </div>
+            {isDono && (
+                <div>
+                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Desempenho da Equipe</h2>
+                    <div className="shadow rounded-lg overflow-hidden" style={{ backgroundColor: corTerciaria }}>
+                        <ul className="divide-y divide-gray-200">{ranking.map((prof, index) => (<li key={index} className={`p-4 flex items-center justify-between ${prof.nome === usuario?.nome ? 'bg-gray-50' : ''}`}><div className="flex items-center"><span className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold mr-3" style={{ color: corPrincipal }}>{prof.nome.charAt(0)}</span><div><p className="text-sm font-medium text-gray-900">{prof.nome}</p><p className="text-xs text-gray-500">{prof.qtd} agendamentos</p></div></div><div className="text-sm font-bold text-green-600">{mostrarValores ? `R$ ${prof.total.toFixed(2)}` : 'R$ ••••'}</div></li>))}</ul>
+                    </div>
+                </div>
+            )}
+        </div>
+        
+        {/* MODAL NOVO AGENDAMENTO (Mantido igual) */}
+        {modalAberto && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
+                <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
+                    <div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold text-gray-800" style={{ color: corPrincipal }}>{tema.labels.novoAgendamento}</h2><button onClick={() => setModalAberto(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button></div>
+                    <form onSubmit={handleCreate} className="space-y-4">
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">{tema.labels.cliente}</label><input list="lista-cli-modal" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 outline-none" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.nomeCliente} onChange={handleNomeChange} placeholder="Buscar..." /><datalist id="lista-cli-modal">{clientes.map(c => <option key={c.id} value={c.nome} />)}</datalist></div>
+                        <div><label className="text-xs font-bold text-gray-500 uppercase">WhatsApp</label><input required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 focus:ring-2 outline-none" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.telefoneCliente} onChange={e => setNovoAgendamento({...novoAgendamento, telefoneCliente: e.target.value})} placeholder="11..." /></div>
+                        <div className="grid grid-cols-2 gap-3"><div><label className="text-xs font-bold text-gray-500 uppercase">{tema.labels.servico}</label><select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.serviceId} onChange={(e) => setNovoAgendamento({...novoAgendamento, serviceId: e.target.value})}><option value="">Selecione...</option>{servicos.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div><div><label className="text-xs font-bold text-gray-500 uppercase">{tema.labels.profissional}</label><select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={novoAgendamento.professionalId} onChange={(e) => setNovoAgendamento({...novoAgendamento, professionalId: e.target.value})}><option value="">Selecione...</option>{profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}</select></div></div>
+                        <div className="grid grid-cols-2 gap-3"><div><label className="text-xs font-bold text-gray-500 uppercase">Data</label><input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} onChange={(e) => setDataSelecionada(e.target.value)} /></div><div><label className="text-xs font-bold text-gray-500 uppercase">Hora</label><select required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={horarioSelecionado} onChange={(e) => setHorarioSelecionado(e.target.value)}><option value="">...</option>{horariosDisponiveis.map(h => <option key={h} value={h}>{h}</option>)}</select></div></div>
+                        <button type="submit" className="w-full text-white py-4 rounded-xl font-bold text-lg shadow-lg mt-4" style={{ backgroundColor: corPrincipal, color: corTexto }}>Confirmar</button>
+                    </form>
+                </div>
+            </div>
+        )}
+
+      </main>
     </div>
   );
 }
