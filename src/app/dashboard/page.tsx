@@ -168,7 +168,7 @@ export default function Dashboard() {
           ...novoAgendamento,
           tenantId: usuario.tenant.id,
           dataHora: dataHoraCombinada.toISOString(),
-          isInternal: true
+          isInternal: true // Bypass regra de 4h
         })
       });
 
@@ -207,18 +207,19 @@ export default function Dashboard() {
             {i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : nomeDia} <span className="text-xs text-gray-400 font-normal">({dataString.slice(0,5)})</span>
           </h3>
           {agendamentosDoDia.length === 0 ? <p className="text-xs text-gray-400 italic text-center py-4">Livre</p> : (
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {agendamentosDoDia.map((ag: any) => {
-                // Limpeza do telefone para o link do WhatsApp
                 const telLimpo = ag.cliente.telefone ? ag.cliente.telefone.replace(/\D/g, '') : '';
-
+                
                 return (
-                  <li key={ag.id} className="text-sm p-2 rounded border-l-4 bg-gray-50" style={{ borderLeftColor: corPrincipal }}>
-                    <strong className="block text-gray-800">{new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
+                  <li key={ag.id} className="text-sm p-2 rounded border-l-4 bg-gray-50 shadow-sm" style={{ borderLeftColor: corPrincipal }}>
+                    <strong className="block text-gray-800 text-xs mb-0.5">
+                        {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
+                    </strong>
                     
                     {/* NOME + ÍCONE ZAP */}
                     <div className="flex items-center gap-1">
-                        <span className="truncate font-medium text-gray-700 block">
+                        <span className="truncate font-bold text-gray-800 block">
                             {ag.cliente.nome}
                         </span>
                         {telLimpo && (
@@ -234,7 +235,12 @@ export default function Dashboard() {
                         )}
                     </div>
 
-                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-500">{ag.profissional.nome.split(' ')[0]}</p>}
+                    {/* NOME DO SERVIÇO (NOVO) */}
+                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                       {tema.icons.servico} {ag.servico.nome}
+                    </p>
+
+                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-400 font-semibold">{ag.profissional.nome.split(' ')[0]}</p>}
                   </li>
                 );
               })}
@@ -304,7 +310,7 @@ export default function Dashboard() {
               {usuario.role === 'ADMIN_GLOBAL' && <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black shadow-sm">👑 ADMIN</button>}
               <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full border bg-white" style={{ color: corPrincipal, borderColor: corPrincipal }}>💎</button>
               
-              {/* BOTÃO DE PERFIL MELHORADO (Correção aplicada) */}
+              {/* BOTÃO DE PERFIL MELHORADO */}
               <button 
                   onClick={() => router.push('/dashboard/perfil')} 
                   className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
@@ -322,12 +328,11 @@ export default function Dashboard() {
                   </div>
                   
                   {/* Nome (Apenas Desktop) */}
-                  <div className="flex flex-col items-start text-sm">
+                  <div className="hidden md:flex flex-col items-start text-sm">
                       <span className="font-bold text-gray-700 leading-tight">
                           {usuario.nome.split(' ')[0]}
                       </span>
-                      {/* Escondi o cargo no mobile pra não quebrar */}
-                      <span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold hidden md:block">
+                      <span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold">
                           {usuario.role === 'DONO_SALAO' ? 'Dono' : 'Pro'}
                       </span>
                   </div>
@@ -351,9 +356,6 @@ export default function Dashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {/* ... Resto do conteúdo do dashboard (Filtros, Cards, Agenda) ... */}
-        {/* Para não repetir 300 linhas, o conteúdo interno é igual ao que te mandei antes */}
-        {/* Vou colar a parte principal do render para garantir que está tudo aqui */}
         
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <div className="flex items-center gap-3 w-full md:w-auto">
@@ -365,6 +367,7 @@ export default function Dashboard() {
                     {profissionais.map(prof => (<option key={prof.id} value={prof.id}>{prof.id === usuario.id ? '👤 Minha Agenda' : `👤 ${prof.nome}`}</option>))}
                 </select>
             </div>
+
             <button onClick={() => setModalAberto(true)} className="w-full md:w-auto text-white px-6 py-2 rounded-lg font-bold shadow-md transition-transform active:scale-95 flex items-center justify-center gap-2" style={{ backgroundColor: corPrincipal, color: corTexto }}>
                 <span>+</span> {tema.labels.novoAgendamento}
             </button>
@@ -375,6 +378,7 @@ export default function Dashboard() {
             <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Agendamentos Totais Hoje' : 'Meus Agendamentos Hoje'} ({stats.hoje})</dt>
             <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2"><div className="h-2.5 rounded-full" style={{ width: `${Math.min(stats.hoje * 10, 100)}%`, backgroundColor: corPrincipal }}></div></div>
           </div>
+          
           <div className="shadow rounded-lg p-5 relative" style={{ backgroundColor: corTerciaria }}>
             <div className="flex justify-between items-start">
                 <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Faturamento (Mês)' : 'Meu Faturamento (Mês)'}</dt>
@@ -460,7 +464,7 @@ export default function Dashboard() {
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Data</label>
-                                <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} min={new Date().toISOString().split('T')[0]} onChange={e => setDataSelecionada(e.target.value)} />
+                                <input type="date" required className="w-full mt-1 border rounded-lg p-3 bg-gray-50 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} />
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Hora</label>
