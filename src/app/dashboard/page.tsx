@@ -11,7 +11,7 @@ export default function Dashboard() {
   const [usuario, setUsuario] = useState<any>(null);
   const [tenant, setTenant] = useState<any>(null);
   
-  // Estado do Tema (Começa com padrão Salão)
+  // Estado do Tema
   const [tema, setTema] = useState(getTheme('SALAO_BELEZA'));
   
   // Dados
@@ -22,7 +22,9 @@ export default function Dashboard() {
   const [mostrarValores, setMostrarValores] = useState(false);
 
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ hoje: 0, faturamento: 0 });
+  
+  // --- ESTATÍSTICAS (Adicionado faturamentoHoje) ---
+  const [stats, setStats] = useState({ hoje: 0, faturamento: 0, faturamentoHoje: 0 });
   const [ranking, setRanking] = useState<any[]>([]);
 
   // Estados para o Modal
@@ -128,11 +130,22 @@ export default function Dashboard() {
     setAgendamentosFiltrados(lista);
 
     const hoje = new Date().toISOString().split('T')[0];
-    const agendamentosHoje = lista.filter((a: any) => a.dataHora.startsWith(hoje));
+    
+    // Quantidade de agendamentos hoje (Total)
+    const agendamentosHojeQtd = lista.filter((a: any) => a.dataHora.startsWith(hoje)).length;
+    
+    // Faturamento Mês (Geral - Confirmado + Concluído)
     const totalMes = lista.reduce((acc: number, curr: any) => acc + Number(curr.servico.preco), 0);
 
-    setStats({ hoje: agendamentosHoje.length, faturamento: totalMes });
+    // --- NOVO: FATURAMENTO DO DIA (SOMENTE CONCLUÍDOS) ---
+    const totalHoje = lista
+        .filter((a: any) => a.dataHora.startsWith(hoje) && a.status === 'CONCLUIDO')
+        .reduce((acc: number, curr: any) => acc + Number(curr.servico.preco), 0);
+    // -----------------------------------------------------
 
+    setStats({ hoje: agendamentosHojeQtd, faturamento: totalMes, faturamentoHoje: totalHoje });
+
+    // Ranking
     const agrupado: any = {};
     todosAgendamentos.forEach((ag: any) => {
       const nome = ag.profissional.nome;
@@ -168,7 +181,7 @@ export default function Dashboard() {
           ...novoAgendamento,
           tenantId: usuario.tenant.id,
           dataHora: dataHoraCombinada.toISOString(),
-          isInternal: true // Bypass regra de 4h
+          isInternal: true 
         })
       });
 
@@ -207,19 +220,16 @@ export default function Dashboard() {
             {i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : nomeDia} <span className="text-xs text-gray-400 font-normal">({dataString.slice(0,5)})</span>
           </h3>
           {agendamentosDoDia.length === 0 ? <p className="text-xs text-gray-400 italic text-center py-4">Livre</p> : (
-            <ul className="space-y-3">
+            <ul className="space-y-2">
               {agendamentosDoDia.map((ag: any) => {
                 const telLimpo = ag.cliente.telefone ? ag.cliente.telefone.replace(/\D/g, '') : '';
                 
                 return (
-                  <li key={ag.id} className="text-sm p-2 rounded border-l-4 bg-gray-50 shadow-sm" style={{ borderLeftColor: corPrincipal }}>
-                    <strong className="block text-gray-800 text-xs mb-0.5">
-                        {new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
-                    </strong>
+                  <li key={ag.id} className="text-sm p-2 rounded border-l-4 bg-gray-50" style={{ borderLeftColor: corPrincipal }}>
+                    <strong className="block text-gray-800">{new Date(ag.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</strong>
                     
-                    {/* NOME + ÍCONE ZAP */}
                     <div className="flex items-center gap-1">
-                        <span className="truncate font-bold text-gray-800 block">
+                        <span className="truncate font-medium text-gray-700 block">
                             {ag.cliente.nome}
                         </span>
                         {telLimpo && (
@@ -235,12 +245,11 @@ export default function Dashboard() {
                         )}
                     </div>
 
-                    {/* NOME DO SERVIÇO (NOVO) */}
                     <p className="text-xs text-gray-500 truncate mt-0.5">
                        {tema.icons.servico} {ag.servico.nome}
                     </p>
 
-                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-400 font-semibold">{ag.profissional.nome.split(' ')[0]}</p>}
+                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-500">{ag.profissional.nome.split(' ')[0]}</p>}
                   </li>
                 );
               })}
@@ -310,13 +319,12 @@ export default function Dashboard() {
               {usuario.role === 'ADMIN_GLOBAL' && <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black shadow-sm">👑 ADMIN</button>}
               <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full border bg-white" style={{ color: corPrincipal, borderColor: corPrincipal }}>💎</button>
               
-              {/* BOTÃO DE PERFIL MELHORADO */}
+              {/* BOTÃO DE PERFIL */}
               <button 
                   onClick={() => router.push('/dashboard/perfil')} 
                   className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
                   title="Meu Perfil"
                 >
-                  {/* Avatar: Foto ou Inicial */}
                   <div className="h-9 w-9 rounded-full overflow-hidden border-2 flex items-center justify-center bg-gray-100 shadow-sm" style={{ borderColor: corPrincipal }}>
                       {usuario.avatarUrl ? (
                           <img src={usuario.avatarUrl} alt={usuario.nome} className="h-full w-full object-cover" />
@@ -327,12 +335,11 @@ export default function Dashboard() {
                       )}
                   </div>
                   
-                  {/* Nome (Apenas Desktop) */}
-                  <div className="hidden md:flex flex-col items-start text-sm">
+                  <div className="flex flex-col items-start text-sm">
                       <span className="font-bold text-gray-700 leading-tight">
                           {usuario.nome.split(' ')[0]}
                       </span>
-                      <span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold">
+                      <span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold hidden md:block">
                           {usuario.role === 'DONO_SALAO' ? 'Dono' : 'Pro'}
                       </span>
                   </div>
@@ -373,6 +380,7 @@ export default function Dashboard() {
             </button>
         </div>
 
+        {/* CARDS GLOBAIS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="shadow rounded-lg p-5" style={{ backgroundColor: corTerciaria }}>
             <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Agendamentos Totais Hoje' : 'Meus Agendamentos Hoje'} ({stats.hoje})</dt>
@@ -389,6 +397,14 @@ export default function Dashboard() {
             <dd className="mt-1 text-3xl font-semibold text-green-600 flex items-center gap-2">
                 {tema.icons.dinheiro} {mostrarValores ? `R$ ${stats.faturamento.toFixed(2)}` : 'R$ ••••'}
             </dd>
+            
+            {/* FATURAMENTO DE HOJE */}
+            <p className="text-xs text-gray-500 mt-2 pt-2 border-t flex justify-between">
+                <span>Hoje:</span>
+                <span className="font-bold text-green-600">
+                    {mostrarValores ? `R$ ${stats.faturamentoHoje.toFixed(2)}` : 'R$ •••'}
+                </span>
+            </p>
           </div>
         </div>
 
@@ -414,6 +430,7 @@ export default function Dashboard() {
             )}
         </div>
 
+        {/* LINK PÚBLICO */}
         {isDono && (
             <div className="mt-10 rounded-lg shadow-lg p-4 flex flex-col md:flex-row items-center justify-between text-white order-last md:order-first" style={{ backgroundColor: corPrincipal }}>
                 <div className="mb-3 md:mb-0 text-center md:text-left">
@@ -427,7 +444,7 @@ export default function Dashboard() {
             </div>
         )}
 
-        {/* Modal */}
+        {/* MODAL NOVO AGENDAMENTO */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
