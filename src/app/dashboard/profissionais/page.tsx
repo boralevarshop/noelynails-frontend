@@ -158,7 +158,7 @@ export default function ProfissionaisPage() {
               profissionais.map((prof) => {
                   const telLimpo = prof.telefone ? prof.telefone.replace(/\D/g, '') : '';
                   // Último atendimento Confirmado ou Concluído
-                  const ultimoAtendimento = prof.agendamentos?.find((a: any) => a.status === 'CONFIRMADO' || a.status === 'CONCLUIDO');
+                  const ultimoAtendimento = prof.agendamentos?.find((a: any) => a.status === 'CONCLUIDO');
 
                   return (
                     <div key={prof.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all flex justify-between items-start">
