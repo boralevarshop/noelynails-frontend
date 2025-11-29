@@ -21,7 +21,9 @@ export default function ServicosPage() {
     nome: '', preco: '', duracaoMin: '30', diasRetorno: '30' 
   });
 
+  // --- NOVO: ESTADO DA BUSCA ---
   const [busca, setBusca] = useState('');
+  // -----------------------------
 
   useEffect(() => {
     const dadosSalvos = localStorage.getItem('usuario_saas');
@@ -62,7 +64,7 @@ export default function ServicosPage() {
   const handleSalvar = async (e: React.FormEvent) => {
     e.preventDefault();
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    const payload = { ...form, tenantId: usuario.tenant.id, usuarioId: usuario.id }; // Envia quem mexeu
+    const payload = { ...form, tenantId: usuario.tenant.id, usuarioId: usuario.id };
 
     try {
         let res;
@@ -93,7 +95,6 @@ export default function ServicosPage() {
     if (!confirm('Tem certeza? Isso pode afetar agendamentos futuros.')) return;
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      // Envia o ID do usuário no body do DELETE para auditoria
       await fetch(`${apiUrl}/services/${id}`, { 
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
@@ -103,8 +104,15 @@ export default function ServicosPage() {
     } catch (error) { alert('Erro ao excluir'); }
   };
 
-  // Filtro
-  const servicosFiltrados = services.filter(s => s.nome.toLowerCase().includes(busca.toLowerCase()));
+  // --- FILTROS INTELIGENTES (SEM ACENTO) ---
+  const normalizarTexto = (texto: string) => {
+      return texto ? texto.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
+  };
+
+  const servicosFiltrados = services.filter(s => 
+      normalizarTexto(s.nome).includes(normalizarTexto(busca))
+  );
+  // -----------------------------------------
 
   const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant?.corSecundaria || '#F3F4F6';
@@ -115,19 +123,37 @@ export default function ServicosPage() {
         
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
           <div className="flex items-center gap-4 w-full md:w-auto">
-             <button onClick={() => router.push('/dashboard')} className="px-4 py-2 rounded-lg font-bold border-2 transition-colors shadow-sm hover:opacity-90 text-sm" style={{ backgroundColor: corPrincipal, borderColor: "#fff", color: "#fff" }}>← Voltar</button>
+             <button 
+                onClick={() => router.push('/dashboard')} 
+                className="px-4 py-2 rounded-lg font-bold border-2 transition-colors shadow-sm hover:opacity-90 text-sm" 
+                style={{ backgroundColor: corPrincipal, borderColor: "#fff", color: "#fff" }}
+             >
+                ← Voltar
+             </button>
              <h1 className="text-2xl font-bold text-gray-900">Meus Serviços</h1>
           </div>
-          <button onClick={() => abrirModal(null)} className="w-full md:w-auto px-6 py-3 rounded-lg font-bold text-white shadow-md hover:scale-105 transition-transform" style={{ backgroundColor: corPrincipal }}>+ Novo Serviço</button>
+          <button 
+            onClick={() => abrirModal(null)} 
+            className="w-full md:w-auto px-6 py-3 rounded-lg font-bold text-white shadow-md hover:scale-105 transition-transform" 
+            style={{ backgroundColor: corPrincipal }}
+          >
+            + Novo Serviço
+          </button>
         </div>
 
-        {/* Busca */}
+        {/* CAMPO DE BUSCA */}
         <div className="bg-white p-4 rounded-xl shadow-sm mb-6 flex gap-2 border border-gray-200">
             <span className="text-2xl">🔍</span>
-            <input type="text" placeholder="Buscar serviço..." className="w-full outline-none text-gray-700" value={busca} onChange={(e) => setBusca(e.target.value)} />
+            <input 
+                type="text" 
+                placeholder="Buscar serviço..." 
+                className="w-full outline-none text-gray-700"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+            />
         </div>
 
-        {loading ? <p className="text-center text-gray-500">Carregando...</p> : (
+        {loading ? <p className="text-center text-gray-500">Carregando...</p> : servicosFiltrados.length === 0 ? <p className="text-gray-500 text-center py-10 bg-white rounded-lg border border-dashed">Nenhum serviço encontrado.</p> : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {servicosFiltrados.map((serv) => (
               <div key={serv.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all flex justify-between items-start border-l-4" style={{ borderLeftColor: corPrincipal }}>
@@ -148,8 +174,18 @@ export default function ServicosPage() {
                 </div>
                 
                 <div className="flex flex-col gap-2 ml-4">
-                    <button onClick={() => abrirModal(serv)} className="px-3 py-1.5 rounded text-xs font-bold border border-gray-300 hover:bg-gray-50 text-gray-700">✏️ Editar</button>
-                    <button onClick={() => handleDelete(serv.id)} className="px-3 py-1.5 rounded text-xs font-bold border border-red-200 text-red-500 hover:bg-red-50">🗑️ Excluir</button>
+                    <button 
+                        onClick={() => abrirModal(serv)} 
+                        className="px-3 py-1.5 rounded text-xs font-bold border border-gray-300 hover:bg-gray-50 text-gray-700"
+                    >
+                        ✏️ Editar
+                    </button>
+                    <button 
+                        onClick={() => handleDelete(serv.id)} 
+                        className="px-3 py-1.5 rounded text-xs font-bold border border-red-200 text-red-500 hover:bg-red-50"
+                    >
+                        🗑️ Excluir
+                    </button>
                 </div>
               </div>
             ))}
