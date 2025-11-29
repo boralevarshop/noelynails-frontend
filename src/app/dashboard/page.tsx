@@ -131,20 +131,16 @@ export default function Dashboard() {
 
     const hoje = new Date().toISOString().split('T')[0];
     
-    // Quantidade de agendamentos hoje (Total)
     const agendamentosHojeQtd = lista.filter((a: any) => a.dataHora.startsWith(hoje)).length;
     
-    // Faturamento Mês (Geral - Confirmado + Concluído)
     const totalMes = lista.reduce((acc: number, curr: any) => acc + Number(curr.servico.preco), 0);
 
-    // Faturamento do Dia (SOMENTE CONCLUÍDOS)
     const totalHoje = lista
         .filter((a: any) => a.dataHora.startsWith(hoje) && a.status === 'CONCLUIDO')
         .reduce((acc: number, curr: any) => acc + Number(curr.servico.preco), 0);
 
     setStats({ hoje: agendamentosHojeQtd, faturamento: totalMes, faturamentoHoje: totalHoje });
 
-    // Ranking
     const agrupado: any = {};
     todosAgendamentos.forEach((ag: any) => {
       const nome = ag.profissional.nome;
@@ -250,7 +246,7 @@ export default function Dashboard() {
                        {tema.icons.servico} {ag.servico.nome}
                     </p>
 
-                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-400 font-semibold">{ag.profissional.nome.split(' ')[0]}</p>}
+                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-500">{ag.profissional.nome.split(' ')[0]}</p>}
                   </li>
                 );
               })}
@@ -267,7 +263,7 @@ export default function Dashboard() {
   const isProfissional = usuario.role === 'PROFISSIONAL';
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
   
-  // Cores
+  // --- DEFINIÇÃO DAS 4 CORES ---
   const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant?.corSecundaria || '#F3F4F6';
   const corTerciaria = tenant?.corTerciaria || '#FFFFFF';
@@ -319,7 +315,6 @@ export default function Dashboard() {
               {usuario.role === 'ADMIN_GLOBAL' && <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black shadow-sm">👑 ADMIN</button>}
               <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full border bg-white" style={{ color: corPrincipal, borderColor: corPrincipal }}>💎</button>
               
-              {/* BOTÃO DE PERFIL */}
               <button 
                   onClick={() => router.push('/dashboard/perfil')} 
                   className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
@@ -335,11 +330,11 @@ export default function Dashboard() {
                       )}
                   </div>
                   
-                  <div className="flex flex-col items-start text-sm">
+                  <div className="hidden md:flex flex-col items-start text-sm">
                       <span className="font-bold text-gray-700 leading-tight">
                           {usuario.nome.split(' ')[0]}
                       </span>
-                      <span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold hidden md:block">
+                      <span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold">
                           {usuario.role === 'DONO_SALAO' ? 'Dono' : 'Pro'}
                       </span>
                   </div>
@@ -380,7 +375,6 @@ export default function Dashboard() {
             </button>
         </div>
 
-        {/* CARDS GLOBAIS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="shadow rounded-lg p-5" style={{ backgroundColor: corTerciaria }}>
             <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Agendamentos Totais Hoje' : 'Meus Agendamentos Hoje'} ({stats.hoje})</dt>
@@ -389,21 +383,24 @@ export default function Dashboard() {
           
           <div className="shadow rounded-lg p-5 relative" style={{ backgroundColor: corTerciaria }}>
             <div className="flex justify-between items-start">
-                <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Faturamento (Mês)' : 'Meu Faturamento (Mês)'}</dt>
+                <dt className="text-sm font-medium text-gray-500 truncate">
+                    {filtroId === 'todos' ? 'Faturamento Hoje' : 'Meu Faturamento Hoje'}
+                </dt>
                 <button onClick={() => setMostrarValores(!mostrarValores)} className="text-gray-400 hover:opacity-70 transition" style={{ color: corPrincipal }}>
                     {mostrarValores ? <IconEyeOpen /> : <IconEyeClosed />}
                 </button>
             </div>
+            {/* FATURAMENTO DE HOJE (GRANDE) */}
             <dd className="mt-1 text-3xl font-semibold text-green-600 flex items-center gap-2">
-                {tema.icons.dinheiro} {mostrarValores ? `R$ ${stats.faturamento.toFixed(2)}` : 'R$ ••••'}
+                {tema.icons.dinheiro} {mostrarValores ? `R$ ${stats.faturamentoHoje.toFixed(2)}` : 'R$ ••••'}
             </dd>
             
-            {/* FATURAMENTO DE HOJE (INVERTIDO A PEDIDO) */}
+            {/* FATURAMENTO DO MÊS (PEQUENO) */}
             <div className="text-xs text-gray-500 mt-2 pt-2 border-t flex justify-between">
-                <span className="font-bold text-lg text-green-700">
-                    Hoje: {mostrarValores ? `R$ ${stats.faturamentoHoje.toFixed(2)}` : 'R$ •••'}
+                <span className="text-[10px] self-center opacity-70 uppercase font-bold">Acumulado Mês:</span>
+                <span className="font-bold text-gray-700">
+                    {mostrarValores ? `R$ ${stats.faturamento.toFixed(2)}` : 'R$ •••'}
                 </span>
-                <span className="text-[10px] self-center opacity-70">Mês acumulado acima</span>
             </div>
           </div>
         </div>
