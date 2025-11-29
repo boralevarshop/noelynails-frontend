@@ -181,22 +181,37 @@ export default function PerfilPage() {
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault(); setSaving(true);
+    e.preventDefault();
+    setSaving(true);
     try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         const res = await fetch(`${apiUrl}/users/${usuario.id}`, {
-            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
         });
+
         if (res.ok) {
-            alert('Perfil atualizado!');
+            alert('Perfil atualizado com sucesso! 💾');
             const userLocal = JSON.parse(localStorage.getItem('usuario_saas') || '{}');
             userLocal.nome = formData.nome;
-            if (formData.avatarUrl) userLocal.avatarUrl = formData.avatarUrl; 
+            // Atualiza o avatar no cache local
+            if (formData.avatarUrl) userLocal.avatarUrl = formData.avatarUrl;
             localStorage.setItem('usuario_saas', JSON.stringify(userLocal));
             window.location.reload();
-        } else alert('Erro.');
-    } catch (error) { alert('Erro de conexão.'); } finally { setSaving(false); }
+        } else {
+            // Mostra o erro real que veio do servidor
+            const erro = await res.json(); // Tenta ler o JSON de erro
+            const msg = erro.message || erro.error || 'Erro desconhecido no servidor';
+            alert(`Falha ao salvar: ${msg}`);
+            console.error('Erro detalhado:', erro);
+        }
+    } catch (error) {
+        alert('Erro de conexão. Verifique sua internet.');
+        console.error(error);
+    } finally {
+        setSaving(false);
+    }
   };
 
   const handleSaveTenant = async (e: React.FormEvent) => {
