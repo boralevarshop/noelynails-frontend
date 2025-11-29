@@ -26,7 +26,7 @@ export default function CalendarioPage() {
   const [tema, setTema] = useState(getTheme('SALAO_BELEZA'));
 
   // Filtros
-  const [filtroId, setFiltroId] = useState('todos');
+  const [filtroId, setFiltroId] = useState(''); // Começa vazio, preenche no useEffect
   
   // Formulário Rápido
   const [novoAgendamento, setNovoAgendamento] = useState({
@@ -45,18 +45,18 @@ export default function CalendarioPage() {
     const user = JSON.parse(dadosSalvos);
     setUsuario(user);
     
-    // Pré-seleção: Se for profissional, trava nele. Se for dono, começa em 'todos' ou nele mesmo.
-    if (user.role === 'PROFISSIONAL') {
-        setFiltroId(user.id);
-        setNovoAgendamento(prev => ({ ...prev, professionalId: user.id }));
-    }
+    // --- MUDANÇA: TODOS COMEÇAM VENDO SUA PRÓPRIA AGENDA ---
+    // Mas podem mudar depois no select
+    setFiltroId(user.id);
+    setNovoAgendamento(prev => ({ ...prev, professionalId: user.id }));
+    // -------------------------------------------------------
 
     carregarDados(user.tenant.id);
   }, []);
 
-  // Filtro Dinâmico (Sempre que mudar o filtro ou os dados)
+  // Filtro Dinâmico
   useEffect(() => {
-    if (filtroId === 'todos') {
+    if (!filtroId || filtroId === 'todos') {
         setAgendamentosFiltrados(todosAgendamentos);
     } else {
         setAgendamentosFiltrados(todosAgendamentos.filter(ag => ag.profissional.id === filtroId));
@@ -86,13 +86,11 @@ export default function CalendarioPage() {
 
       if (resAgenda.ok) {
         const dados = await resAgenda.json();
-        // Filtra cancelados para não poluir
         setTodosAgendamentos(Array.isArray(dados) ? dados.filter((a:any) => a.status !== 'CANCELADO') : []);
       }
     } catch (error) { console.error(error); }
   };
 
-  // --- Lógica do Calendário ---
   const renderHeader = () => {
     return (
       <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow border border-gray-100">
@@ -129,15 +127,12 @@ export default function CalendarioPage() {
     return (
       <div className="grid grid-cols-7 gap-2">
         {dayList.map((dayItem, idx) => {
-          // Filtra agendamentos do dia (usando a lista FILTRADA pelo select)
           const agendamentosDoDia = agendamentosFiltrados.filter(a => 
             new Date(a.dataHora).toDateString() === dayItem.toDateString()
           );
 
           const isTodayItem = isSameDay(dayItem, new Date());
           const isCurrentMonth = isSameMonth(dayItem, monthStart);
-          
-          // Verifica se é passado (para estilo visual)
           const isPast = isBefore(dayItem, startOfToday());
 
           return (
@@ -151,7 +146,9 @@ export default function CalendarioPage() {
               style={isTodayItem ? { '--tw-ring-color': corPrincipal } as any : {}}
               onClick={() => {
                 setSelectedDate(dayItem);
-                setNovoAgendamento(prev => ({ ...prev, horario: '' })); 
+                // Se tiver filtro ativo (diferente de todos), já preenche o profissional
+                const profPre = filtroId !== 'todos' ? filtroId : '';
+                setNovoAgendamento(prev => ({ ...prev, horario: '', professionalId: profPre })); 
               }}
             >
               <div className="flex justify-between items-start mb-1">
@@ -165,7 +162,6 @@ export default function CalendarioPage() {
                 )}
               </div>
               
-              {/* Bolinhas de Agendamento */}
               <div className="flex flex-col gap-1 overflow-hidden">
                 {agendamentosDoDia.slice(0, 3).map((ag: any, i) => (
                   <div key={i} className="flex items-center gap-1 text-[9px] truncate">
@@ -200,7 +196,7 @@ export default function CalendarioPage() {
           ...novoAgendamento,
           tenantId: usuario.tenant.id,
           dataHora: dataHoraCombinada.toISOString(),
-          isInternal: true // Dono pode agendar a qualquer hora
+          isInternal: true
         })
       });
 
@@ -227,34 +223,29 @@ export default function CalendarioPage() {
     if (cli) setNovoAgendamento(prev => ({ ...prev, nomeCliente: val, telefoneCliente: cli.telefone }));
   };
 
-  // Cores Dinâmicas
   const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant?.corSecundaria || '#F3F4F6';
-  
-  const isProfissional = usuario?.role === 'PROFISSIONAL';
   const isPastDate = selectedDate ? isBefore(selectedDate, startOfToday()) : false;
 
   return (
     <div className="min-h-screen p-4 md:p-8" style={{ backgroundColor: corFundo }}>
       <div className="max-w-7xl mx-auto">
         
-        {/* Header com Filtro */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
           <div className="flex items-center gap-4 w-full md:w-auto">
               <button onClick={() => router.push('/dashboard')} className="px-4 py-2 rounded-lg font-bold border-2 transition-colors shadow-sm hover:opacity-90 text-sm" style={{ backgroundColor: corPrincipal, borderColor: "#fff", color: "#fff" }}>
                   ← Voltar
               </button>
               
-              {/* FILTRO DE PROFISSIONAL */}
+              {/* FILTRO DE PROFISSIONAL (AGORA LIVRE PARA TODOS) */}
               <div className="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border border-gray-200">
                   <span className="text-xl ml-2">{tema.icons.profissional}</span>
                   <select 
                     value={filtroId} 
                     onChange={(e) => setFiltroId(e.target.value)} 
-                    disabled={isProfissional} 
-                    className={`p-2 text-sm bg-transparent outline-none font-bold text-gray-700 ${isProfissional ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                    className="p-2 text-sm bg-transparent outline-none font-bold text-gray-700 cursor-pointer"
                   >
-                      {!isProfissional && <option value="todos">Ver Todos</option>}
+                      <option value="todos">Ver Todos</option>
                       {profissionais.map(prof => (
                           <option key={prof.id} value={prof.id}>
                               {prof.id === usuario?.id ? 'Minha Agenda' : prof.nome}
@@ -269,7 +260,6 @@ export default function CalendarioPage() {
         {renderDays()}
         {renderCells()}
 
-        {/* MODAL */}
         {selectedDate && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col">
@@ -282,7 +272,6 @@ export default function CalendarioPage() {
 
               <div className="p-6 space-y-6 flex-1 overflow-y-auto">
                 
-                {/* Lista do Dia (Respeitando Filtro) */}
                 <div>
                   <h4 className="text-sm font-bold text-gray-500 uppercase mb-3">
                     Agenda do Dia {filtroId !== 'todos' ? `(${profissionais.find(p => p.id === filtroId)?.nome})` : ''}
@@ -322,7 +311,6 @@ export default function CalendarioPage() {
 
                 <hr />
 
-                {/* FORMULÁRIO RÁPIDO (SÓ SE NÃO FOR PASSADO) */}
                 {!isPastDate ? (
                     <div>
                       <h4 className="text-sm font-bold text-gray-500 uppercase mb-3">{tema.labels.novoAgendamento}</h4>
@@ -372,7 +360,7 @@ export default function CalendarioPage() {
                           </div>
                         </div>
 
-                        {/* Se for "Todos", obriga a escolher profissional. Se já filtrou, usa o filtro. */}
+                        {/* Se for "Todos", obriga a escolher. Se for filtro, já vem travado ou opcional */}
                         {filtroId === 'todos' && (
                             <div>
                                 <label className="text-xs font-bold text-gray-600">{tema.labels.profissional}</label>
@@ -393,12 +381,10 @@ export default function CalendarioPage() {
                         🚫 Não é possível criar agendamentos em datas passadas.
                     </div>
                 )}
-
               </div>
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
