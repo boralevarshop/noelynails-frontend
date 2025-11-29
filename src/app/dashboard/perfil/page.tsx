@@ -46,28 +46,36 @@ export default function PerfilPage() {
   // --- LISTA DE AVATARES (LINKS PRONTOS) ---
   const AVATARES: any = {
       SALAO_BELEZA: [
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Jessica&backgroundColor=ffdfbf',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Lola&backgroundColor=b6e3f4',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Annie&backgroundColor=c0aede',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Betty&backgroundColor=d1d4f9',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Cuddles&backgroundColor=ffdfbf',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Sara&backgroundColor=ffd5dc'
+          'https://api.dicebear.com/9.x/lorelei/svg?seed=Maria',
+          'https://api.dicebear.com/9.x/lorelei/svg?seed=Sasha',
+          'https://api.dicebear.com/9.x/lorelei/svg?seed=Amara',
+          'https://api.dicebear.com/9.x/lorelei/svg?seed=Jade',
+          'https://api.dicebear.com/9.x/lorelei/svg?seed=Sara',
+          'https://api.dicebear.com/9.x/lorelei/svg?seed=Kylie'
       ],
       BARBEARIA: [
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=c0aede',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack&backgroundColor=b6e3f4',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka&backgroundColor=ffdfbf', // Estilo curto
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob&backgroundColor=d1d4f9',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Trouble&backgroundColor=c0aede',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Shadow&backgroundColor=b6e3f4'
+          'https://api.dicebear.com/9.x/avataaars/svg?seed=Jack&eyebrows=default&eyes=default&mouth=default&facialHair=beardMedium',
+          'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix&facialHair=beardMajestic',
+          'https://api.dicebear.com/9.x/avataaars/svg?seed=Christopher&facialHair=moustacheFancy',
+          'https://api.dicebear.com/9.x/avataaars/svg?seed=Dylan&facialHair=beardLight',
+          'https://api.dicebear.com/9.x/avataaars/svg?seed=Aidan&facialHair=beardMagestic',
+          'https://api.dicebear.com/9.x/avataaars/svg?seed=Josh&top=shortHairTheCaesar'
+      ],
+      CLINICA: [
+          'https://api.dicebear.com/9.x/micah/svg?seed=Doctor1',
+          'https://api.dicebear.com/9.x/micah/svg?seed=Nurse2',
+          'https://api.dicebear.com/9.x/micah/svg?seed=Doc3',
+          'https://api.dicebear.com/9.x/micah/svg?seed=Specialist',
+          'https://api.dicebear.com/9.x/micah/svg?seed=Medic',
+          'https://api.dicebear.com/9.x/micah/svg?seed=Attendant'
       ],
       GERAL: [
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Midnight&backgroundColor=b6e3f4',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Bubba&backgroundColor=ffdfbf',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Callie&backgroundColor=c0aede',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Leo&backgroundColor=d1d4f9',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Sassy&backgroundColor=ffd5dc',
-          'https://api.dicebear.com/7.x/avataaars/svg?seed=Misty&backgroundColor=b6e3f4'
+          'https://api.dicebear.com/9.x/notionists/svg?seed=Leo',
+          'https://api.dicebear.com/9.x/notionists/svg?seed=Mila',
+          'https://api.dicebear.com/9.x/notionists/svg?seed=Robert',
+          'https://api.dicebear.com/9.x/notionists/svg?seed=Julia',
+          'https://api.dicebear.com/9.x/notionists/svg?seed=Brian',
+          'https://api.dicebear.com/9.x/notionists/svg?seed=Ana'
       ]
   };
 
