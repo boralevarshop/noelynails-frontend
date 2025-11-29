@@ -13,12 +13,12 @@ export default function PublicAgendamentoPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
 
+  // Inicializa como arrays vazios para evitar erro de .map
   const [servicos, setServicos] = useState<any[]>([]);
   const [profissionais, setProfissionais] = useState<any[]>([]);
   const [horariosLivres, setHorariosLivres] = useState<string[]>([]);
   const [buscandoHorarios, setBuscandoHorarios] = useState(false);
   
-  // Estado da Busca
   const [busca, setBusca] = useState('');
 
   const [selecao, setSelecao] = useState({
@@ -40,25 +40,40 @@ export default function PublicAgendamentoPage() {
     try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL;
         const res = await fetch(`${apiUrl}/tenants/slug/${slug}`);
-        if (!res.ok) { alert('Salão fechado ou não encontrado.'); return; }
+        
+        if (!res.ok) { 
+            setLoading(false);
+            alert('Salão não encontrado.'); 
+            return; 
+        }
         
         const dadosTenant = await res.json();
-        if (!dadosTenant.agendamentoOnline) {
-            alert('Este salão desativou o agendamento online temporariamente.');
-            return;
-        }
         setTenant(dadosTenant);
 
         const resServicos = await fetch(`${apiUrl}/services/tenant/${dadosTenant.id}`);
-        setServicos(await resServicos.json());
+        if (resServicos.ok) {
+            const listaServicos = await resServicos.json();
+            setServicos(Array.isArray(listaServicos) ? listaServicos : []);
+        } else {
+            setServicos([]);
+        }
+
         setLoading(false);
-    } catch (error) { console.error(error); setLoading(false); }
+    } catch (error) { 
+        console.error(error); 
+        setLoading(false); 
+    }
   };
 
   const buscarProfissionais = async (serviceId: string) => {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const res = await fetch(`${apiUrl}/professionals/tenant/${tenant.id}?serviceId=${serviceId}`);
-      setProfissionais(await res.json());
+      if (res.ok) {
+          const lista = await res.json();
+          setProfissionais(Array.isArray(lista) ? lista : []);
+      } else {
+          setProfissionais([]);
+      }
   };
 
   const buscarHorarios = async (data: string) => {
@@ -78,15 +93,18 @@ export default function PublicAgendamentoPage() {
 
           const res = await fetch(`${apiUrl}/appointments/availability?${query}`);
           if (res.ok) {
-              setHorariosLivres(await res.json());
+              const lista = await res.json();
+              setHorariosLivres(Array.isArray(lista) ? lista : []);
+          } else {
+              setHorariosLivres([]);
           }
-      } catch (e) { console.error(e); }
+      } catch (e) { console.error(e); setHorariosLivres([]); }
       finally { setBuscandoHorarios(false); }
   };
 
   const avancarPasso = (dados: any) => {
       setSelecao(prev => ({ ...prev, ...dados }));
-      setBusca(''); // Limpa a busca ao avançar
+      setBusca(''); 
       
       if (step === 1 && dados.serviceId) {
           buscarProfissionais(dados.serviceId);
@@ -101,7 +119,7 @@ export default function PublicAgendamentoPage() {
   };
 
   const voltarPasso = (novoPasso: number) => {
-      setBusca(''); // Limpa a busca ao voltar
+      setBusca('');
       setStep(novoPasso);
   };
 
@@ -131,27 +149,25 @@ export default function PublicAgendamentoPage() {
       } catch (error) { alert('Erro de conexão.'); }
   };
 
-  // --- FUNÇÃO DE NORMALIZAÇÃO (Remove acentos e deixa minúsculo) ---
+  // Normalização para busca sem acento
   const normalizarTexto = (texto: string) => {
-      return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      return texto ? texto.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
   };
-  // -----------------------------------------------------------------
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
-  if (!tenant) return null;
+  if (!tenant) return <div className="min-h-screen flex items-center justify-center text-red-500">Salão não encontrado ou fechado.</div>;
 
   const corPrincipal = tenant.corPrimaria || '#4F46E5';
   const corFundo = tenant.corSecundaria || '#F3F4F6';
 
-  // --- FILTROS INTELIGENTES (COM NORMALIZAÇÃO) ---
-  const servicosFiltrados = servicos.filter(s => 
+  // Filtros Seguros
+  const servicosFiltrados = Array.isArray(servicos) ? servicos.filter(s => 
       normalizarTexto(s.nome).includes(normalizarTexto(busca))
-  );
+  ) : [];
   
-  const profissionaisFiltrados = profissionais.filter(p => 
+  const profissionaisFiltrados = Array.isArray(profissionais) ? profissionais.filter(p => 
       normalizarTexto(p.nome).includes(normalizarTexto(busca))
-  );
-  // -----------------------------------------------
+  ) : [];
 
   return (
     <div className="min-h-screen flex flex-col items-center py-10 px-4" style={{ backgroundColor: corFundo }}>
@@ -167,8 +183,6 @@ export default function PublicAgendamentoPage() {
             {step === 1 && (
                 <div>
                     <h2 className="text-lg font-bold text-gray-800 mb-4">1. Escolha o Serviço</h2>
-                    
-                    {/* CAMPO DE BUSCA */}
                     <input 
                         type="text" 
                         placeholder="🔍 Buscar serviço..." 
@@ -201,8 +215,6 @@ export default function PublicAgendamentoPage() {
                 <div>
                     <button onClick={() => voltarPasso(1)} className="text-xs text-gray-500 mb-4">← Voltar</button>
                     <h2 className="text-lg font-bold text-gray-800 mb-4">2. Escolha o Profissional</h2>
-                    
-                    {/* CAMPO DE BUSCA */}
                     <input 
                         type="text" 
                         placeholder="🔍 Buscar profissional..." 
@@ -220,8 +232,8 @@ export default function PublicAgendamentoPage() {
                                     onClick={() => avancarPasso({ professionalId: prof.id, professionalNome: prof.nome })}
                                     className="p-4 border rounded-lg cursor-pointer hover:bg-gray-50 flex items-center gap-4 transition-colors"
                                 >
-                                    <div className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: corPrincipal }}>
-                                        {prof.nome.charAt(0)}
+                                    <div className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold overflow-hidden" style={{ backgroundColor: corPrincipal }}>
+                                        {prof.avatarUrl ? <img src={prof.avatarUrl} className="w-full h-full object-cover" /> : prof.nome.charAt(0)}
                                     </div>
                                     <p className="font-bold text-gray-800">{prof.nome}</p>
                                 </div>
@@ -235,7 +247,6 @@ export default function PublicAgendamentoPage() {
                 <div>
                     <button onClick={() => voltarPasso(2)} className="text-xs text-gray-500 mb-4">← Voltar</button>
                     <h2 className="text-lg font-bold text-gray-800 mb-4">3. Data e Hora</h2>
-                    
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dia</label>
                     <input 
                         type="date" 
@@ -272,7 +283,6 @@ export default function PublicAgendamentoPage() {
                         <p>{format(new Date(selecao.data), 'dd/MM')} às {selecao.horario}</p>
                         <p className="font-bold mt-1" style={{ color: corPrincipal }}>R$ {Number(selecao.servicePreco).toFixed(2)}</p>
                     </div>
-
                     <div className="space-y-4">
                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome</label><input required className="w-full border rounded-lg p-3 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} onChange={e => setSelecao({...selecao, clienteNome: e.target.value})} /></div>
                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">WhatsApp</label><input required className="w-full border rounded-lg p-3 outline-none focus:ring-2" style={{ '--tw-ring-color': corPrincipal } as any} placeholder="11999999999" onChange={e => setSelecao({...selecao, clienteTelefone: e.target.value})} /></div>
