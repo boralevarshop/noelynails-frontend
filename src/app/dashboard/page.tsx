@@ -246,7 +246,7 @@ export default function Dashboard() {
                        {tema.icons.servico} {ag.servico.nome}
                     </p>
 
-                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-500">{ag.profissional.nome.split(' ')[0]}</p>}
+                    {filtroId === 'todos' && <p className="text-[10px] uppercase tracking-wide mt-1 text-gray-400 font-semibold">{ag.profissional.nome.split(' ')[0]}</p>}
                   </li>
                 );
               })}
@@ -263,7 +263,6 @@ export default function Dashboard() {
   const isProfissional = usuario.role === 'PROFISSIONAL';
   const isDono = usuario.role === 'DONO_SALAO' || usuario.role === 'ADMIN_GLOBAL';
   
-  // --- DEFINIÇÃO DAS 4 CORES ---
   const corPrincipal = tenant?.corPrimaria || '#4F46E5';
   const corFundo = tenant?.corSecundaria || '#F3F4F6';
   const corTerciaria = tenant?.corTerciaria || '#FFFFFF';
@@ -300,8 +299,15 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold truncate max-w-[100px] md:max-w-none" style={{ color: corPrincipal }}>{usuario.tenant.nome}</h1>
+              
+              {/* CORREÇÃO DO TITULO: SEM TRUNCATE E RESPONSIVO */}
+              <h1 className="text-lg md:text-xl font-bold" style={{ color: corPrincipal }}>
+                  {usuario.tenant.nome}
+              </h1>
+
               <div className="hidden md:block">{planoLabel}</div>
+              
+              {/* Links do Menu Desktop */}
               <div className="hidden md:flex space-x-1 ml-4">
                 <button onClick={() => router.push('/dashboard/agendamentos')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">{tema.icons.agenda} Agenda</button>
                 <button onClick={() => router.push('/dashboard/calendario')} className="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">Calendário</button>
@@ -311,10 +317,12 @@ export default function Dashboard() {
                 <button onClick={() => router.push('/dashboard/bloqueios')} className="text-red-600 hover:bg-red-50 px-3 py-2 rounded-md text-sm font-medium">Bloqueios</button>
               </div>
             </div>
+            
             <div className="flex items-center gap-3">
               {usuario.role === 'ADMIN_GLOBAL' && <button onClick={() => router.push('/admin')} className="hidden md:block text-xs bg-gray-900 text-yellow-400 px-3 py-1.5 rounded font-bold border border-yellow-500/30 hover:bg-black shadow-sm">👑 ADMIN</button>}
               <button onClick={() => router.push('/dashboard/plano')} className="flex items-center justify-center h-8 w-8 rounded-full border bg-white" style={{ color: corPrincipal, borderColor: corPrincipal }}>💎</button>
               
+              {/* BOTÃO DE PERFIL CORRIGIDO */}
               <button 
                   onClick={() => router.push('/dashboard/perfil')} 
                   className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
@@ -330,11 +338,12 @@ export default function Dashboard() {
                       )}
                   </div>
                   
-                  <div className="hidden md:flex flex-col items-start text-sm">
-                      <span className="font-bold text-gray-700 leading-tight">
+                  {/* Nome SEMPRE VISÍVEL (removido o hidden md:block) */}
+                  <div className="flex flex-col items-start text-sm">
+                      <span className="font-bold text-gray-700 leading-tight text-xs md:text-sm">
                           {usuario.nome.split(' ')[0]}
                       </span>
-                      <span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold">
+                      <span className="text-[10px] text-gray-400 leading-tight uppercase font-semibold hidden md:block">
                           {usuario.role === 'DONO_SALAO' ? 'Dono' : 'Pro'}
                       </span>
                   </div>
@@ -344,6 +353,8 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* MENU MOBILE NO RODAPÉ */}
         <div className="md:hidden border-t border-gray-200 bg-gray-50">
           <div className="grid grid-cols-6 divide-x divide-gray-200">
             <button onClick={() => router.push('/dashboard/agendamentos')} className="py-3 text-[10px] font-medium hover:bg-gray-100 flex flex-col items-center" style={{ color: corPrincipal }}><span>{tema.icons.agenda}</span> Agenda</button>
@@ -353,10 +364,13 @@ export default function Dashboard() {
             <button onClick={() => router.push('/dashboard/clientes')} className="py-3 text-[10px] font-medium text-gray-600 hover:bg-gray-100 flex flex-col items-center"><span>{tema.icons.cliente}</span> Cli</button>
             <button onClick={() => router.push('/dashboard/bloqueios')} className="py-3 text-[10px] font-medium text-red-600 hover:bg-red-50 flex flex-col items-center"><span>⛔</span> Bloq</button>
           </div>
+          {/* PLANO VISÍVEL NO MOBILE TAMBÉM */}
           <div className="bg-white border-t border-gray-200 py-1 text-center">{planoLabel}</div>
         </div>
       </nav>
 
+      {/* CONTEÚDO DO DASHBOARD... (Manter igual) */}
+      {/* Para não duplicar o arquivo, o restante do código (main) permanece idêntico ao anterior */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -383,19 +397,15 @@ export default function Dashboard() {
           
           <div className="shadow rounded-lg p-5 relative" style={{ backgroundColor: corTerciaria }}>
             <div className="flex justify-between items-start">
-                <dt className="text-sm font-medium text-gray-500 truncate">
-                    {filtroId === 'todos' ? 'Faturamento Hoje' : 'Meu Faturamento Hoje'}
-                </dt>
+                <dt className="text-sm font-medium text-gray-500 truncate">{filtroId === 'todos' ? 'Faturamento Hoje' : 'Meu Faturamento Hoje'}</dt>
                 <button onClick={() => setMostrarValores(!mostrarValores)} className="text-gray-400 hover:opacity-70 transition" style={{ color: corPrincipal }}>
                     {mostrarValores ? <IconEyeOpen /> : <IconEyeClosed />}
                 </button>
             </div>
-            {/* FATURAMENTO DE HOJE (GRANDE) */}
             <dd className="mt-1 text-3xl font-semibold text-green-600 flex items-center gap-2">
                 {tema.icons.dinheiro} {mostrarValores ? `R$ ${stats.faturamentoHoje.toFixed(2)}` : 'R$ ••••'}
             </dd>
             
-            {/* FATURAMENTO DO MÊS (PEQUENO) */}
             <div className="text-xs text-gray-500 mt-2 pt-2 border-t flex justify-between">
                 <span className="text-[10px] self-center opacity-70 uppercase font-bold">Acumulado Mês:</span>
                 <span className="font-bold text-gray-700">
@@ -440,7 +450,6 @@ export default function Dashboard() {
             </div>
         )}
 
-        {/* Modal */}
         {modalAberto && (
             <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl p-6 animate-slide-up shadow-2xl max-h-[90vh] overflow-y-auto">
